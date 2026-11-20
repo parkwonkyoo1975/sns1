@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>바른말 고운말 모둠 채팅 - 초등 4학년 국어 수업</title>
+  <!-- Firebase Realtime Database Compat SDK (실시간 다기기 동기화용) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <!-- QR코드 생성 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg-student: #f0f7ff;
+      --bg-teacher: #f1f5f9;
+      --card-bg: #ffffff;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #dbeafe;
+      --secondary: #0f766e;
+      --accent: #f59e0b;
+      --accent-soft: #fef3c7;
+      --danger: #dc2626;
+      --danger-soft: #fee2e2;
+      --success: #059669;
+      --success-soft: #d1fae5;
+      --text-main: #1e293b;
+      --text-sub: #64748b;
+      --border: #cbd5e1;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-main);
+      background: var(--bg-student);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    body.teacher-mode {
+      background: var(--bg-teacher);
+    }
+
+    .hidden { display: none !important; }
+
+    /* 공통 버튼 & 입력 */
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      padding: 10px 18px;
+      font-size: 15px;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: var(--text-main);
+      padding: 9px 14px;
+      font-size: 14px;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #cbd5e1; }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+      padding: 9px 14px;
+      font-size: 14px;
+    }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+      padding: 9px 14px;
+      font-size: 14px;
+    }
+    .btn-success:hover:not(:disabled) { background: #047857; }
+
+    .btn-warning {
+      background: var(--accent);
+      color: #fff;
+      padding: 9px 14px;
+      font-size: 14px;
+    }
+    .btn-warning:hover:not(:disabled) { background: #d97706; }
+
+    .btn-xs {
+      padding: 5px 9px;
+      font-size: 12px;
+      border-radius: 6px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="url"],
+    select,
+    textarea {
+      font-family: inherit;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 15px;
+      color: var(--text-main);
+      background: #fff;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+    }
+
+    /* ========== 1. 대기실 / 학생 입장 화면 ========== */
+    .entry-wrapper {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 36px 20px;
+    }
+
+    .entry-card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 32px;
+      border: 2px solid #dbeafe;
+    }
+
+    .entry-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .entry-badge {
+      display: inline-block;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .entry-header h1 {
+      font-size: 28px;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+
+    .entry-header p {
+      color: var(--text-sub);
+      font-size: 15px;
+    }
+
+    .topic-preview-box {
+      background: var(--accent-soft);
+      border: 2px solid #fcd34d;
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .topic-preview-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #92400e;
+      margin-bottom: 4px;
+    }
+
+    .topic-preview-text {
+      font-size: 18px;
+      font-weight: 800;
+      color: #78350f;
+    }
+
+    .room-grid-select {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    @media (max-width: 600px) {
+      .room-grid-select { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .room-select-btn {
+      background: #f8fafc;
+      border: 2px solid #cbd5e1;
+      border-radius: var(--radius-md);
+      padding: 16px 12px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .room-select-btn:hover {
+      border-color: var(--primary);
+      background: #eff6ff;
+    }
+
+    .room-select-btn.selected {
+      border-color: var(--primary);
+      background: #dbeafe;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    }
+
+    .room-select-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .room-select-count {
+      font-size: 13px;
+      color: var(--text-sub);
+      font-weight: 600;
+    }
+
+    .room-select-count.full {
+      color: var(--danger);
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 8px;
+      color: #1e293b;
+    }
+
+    .rules-mini-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+
+    .rules-mini-title {
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 8px;
+    }
+
+    .rules-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .rule-tag {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .entry-footer-links {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+
+    /* ========== 2. 학생용 채팅방 화면 ========== */
+    .student-chat-layout {
+      max-width: 900px;
+      height: 100vh;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      box-shadow: 0 0 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .chat-top-header {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chat-room-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chat-room-pill {
+      background: rgba(255, 255, 255, 0.22);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .chat-user-meta {
+      font-size: 14px;
+      opacity: 0.95;
+    }
+
+    .chat-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-chip {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .topic-banner {
+      background: var(--accent-soft);
+      border-bottom: 2px solid #fde68a;
+      padding: 11px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+    }
+
+    .topic-banner-tag {
+      background: #f59e0b;
+      color: #fff;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .topic-banner-content {
+      font-weight: 700;
+      color: #78350f;
+      font-size: 16px;
+    }
+
+    .notice-banner {
+      background: #eff6ff;
+      border-bottom: 2px solid #93c5fd;
+      padding: 11px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #1e3a8a;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .members-bar {
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+
+    .member-badge {
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .member-badge.me {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .chat-messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f8fbff;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .chat-empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-sub);
+      padding: 30px;
+    }
+
+    .chat-empty-state p {
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .msg-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 78%;
+    }
+
+    .msg-row.mine {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .msg-row.other {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    .msg-sender {
+      font-size: 13px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 4px;
+      padding: 0 4px;
+    }
+
+    .msg-bubble-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .msg-row.mine .msg-bubble-wrap {
+      flex-direction: row-reverse;
+    }
+
+    .msg-bubble {
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 16px;
+      line-height: 1.5;
+      word-break: break-word;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    }
+
+    .msg-row.mine .msg-bubble {
+      background: #2563eb;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-row.other .msg-bubble {
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid #dbeafe;
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg-time {
+      font-size: 11px;
+      color: #94a3b8;
+      white-space: nowrap;
+      margin-bottom: 2px;
+    }
+
+    .lock-banner {
+      background: #fef2f2;
+      border-top: 2px solid #fca5a5;
+      color: #991b1b;
+      padding: 12px 20px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .chat-input-bar {
+      padding: 14px 18px;
+      background: #fff;
+      border-top: 2px solid #e2e8f0;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .chat-input-row input {
+      flex: 1;
+      font-size: 16px;
+      padding: 12px 16px;
+      border-radius: 12px;
+    }
+
+    .chat-send-btn {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 22px;
+      font-size: 16px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    .chat-send-btn:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .chat-input-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    /* ========== 3. 교사 통합 대시보드 ========== */
+    .teacher-auth-wrapper {
+      max-width: 440px;
+      margin: 80px auto;
+      padding: 20px;
+    }
+
+    .teacher-header {
+      background: #0f172a;
+      color: #fff;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .teacher-title-area h1 {
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .teacher-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .sys-pill {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .sys-pill.online { background: #065f46; color: #a7f3d0; }
+    .sys-pill.demo { background: #92400e; color: #fde68a; }
+    .sys-pill.ai-on { background: #1e40af; color: #bfdbfe; }
+    .sys-pill.ai-off { background: #475569; color: #e2e8f0; }
+
+    .teacher-header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .teacher-toolbar {
+      background: #fff;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 14px 24px;
+      display: grid;
+      grid-template-columns: 1.2fr 1.2fr auto;
+      gap: 14px;
+      align-items: end;
+    }
+
+    @media (max-width: 1100px) {
+      .teacher-toolbar { grid-template-columns: 1fr; }
+    }
+
+    .toolbar-block label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 5px;
+    }
+
+    .inline-input-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .inline-input-group input {
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+
+    .toolbar-global-btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .dashboard-grid {
+      padding: 20px 24px 36px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    @media (max-width: 1280px) {
+      .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 820px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+    }
+
+    .room-monitor-card {
+      background: #fff;
+      border-radius: var(--radius-md);
+      border: 2px solid #e2e8f0;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+      display: flex;
+      flex-direction: column;
+      height: 430px;
+      overflow: hidden;
+    }
+
+    .room-monitor-card.locked {
+      border-color: #f87171;
+    }
+
+    .room-monitor-card.alert-high {
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+    }
+
+    .room-card-head {
+      padding: 11px 14px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .room-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .room-color-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .room-card-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .mini-pill {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .mini-pill.count { background: #e0f2fe; color: #0369a1; }
+    .mini-pill.locked { background: #fee2e2; color: #b91c1c; }
+    .mini-pill.warn { background: #fef3c7; color: #92400e; cursor: pointer; }
+    .mini-pill.warn-high { background: #fee2e2; color: #b91c1c; cursor: pointer; }
+
+    .room-card-members {
+      padding: 6px 14px;
+      background: #ffffff;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      min-height: 33px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .room-card-notice {
+      background: #eff6ff;
+      color: #1e40af;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border-bottom: 1px solid #bfdbfe;
+    }
+
+    .room-card-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      background: #fafcff;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .monitor-msg-item {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 7px 10px;
+    }
+
+    .monitor-msg-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 3px;
+    }
+
+    .monitor-msg-sender {
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .monitor-msg-body {
+      color: #0f172a;
+      word-break: break-word;
+    }
+
+    .room-card-actions {
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    /* ========== 4. 모달 ========== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 18px;
+      z-index: 1000;
+    }
+
+    .modal-box {
+      background: #fff;
+      border-radius: var(--radius-lg);
+      max-width: 560px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      padding: 24px;
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .modal-head h2 {
+      font-size: 20px;
+      color: #0f172a;
+    }
+
+    .modal-close-btn {
+      background: #f1f5f9;
+      color: #475569;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 16px;
+    }
+
+    /* 학생 교정 모달 전용 */
+    .correction-box {
+      border: 3px solid #f59e0b;
+    }
+
+    .correction-cats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .correction-cat-badge {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .correction-original {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      color: #64748b;
+    }
+
+    .correction-explain {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      font-size: 15px;
+      color: #78350f;
+      line-height: 1.6;
+    }
+
+    .correction-suggestion-card {
+      background: #ecfdf5;
+      border: 2px solid #34d399;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+    }
+
+    .correction-suggestion-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: #065f46;
+      margin-bottom: 6px;
+    }
+
+    .correction-suggestion-text {
+      font-size: 17px;
+      font-weight: 700;
+      color: #064e3b;
+      word-break: break-word;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+    }
+
+    .qr-canvas-box {
+      padding: 16px;
+      background: #fff;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+    }
+
+    .url-copy-box {
+      width: 100%;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 13px;
+      word-break: break-all;
+      color: #334155;
+    }
+
+    .settings-section {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .settings-section h3 {
+      font-size: 15px;
+      margin-bottom: 8px;
+      color: #0f172a;
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    .toast-banner {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      z-index: 2000;
+    }
+
+    .blocked-log-item {
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .spinner-inline {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== VIEW 1: 대기실 / 모둠 입장 ==================== -->
+  <div id="view-entry" class="entry-wrapper hidden">
+    <div class="entry-card">
+      <div class="entry-header">
+        <span class="entry-badge">초등학교 4학년 국어 · 온라인 대화 예절 실습</span>
+        <h1 id="entry-title">바른말 고운말 모둠 채팅방</h1>
+        <p id="entry-subtitle">내 모둠을 확인하고 학번과 이름을 입력한 뒤 입장해 주세요.</p>
+      </div>
+
+      <div class="topic-preview-box">
+        <div class="topic-preview-label">오늘의 대화 주제</div>
+        <div id="entry-topic-text" class="topic-preview-text">우리 반 모두가 행복해지는 온라인 대화 약속 정하기</div>
+      </div>
+
+      <div id="entry-room-selector-wrap">
+        <div class="form-group">
+          <label>1. 우리 모둠 선택하기 (모둠당 최대 4명)</label>
+          <div id="entry-room-grid" class="room-grid-select"></div>
+        </div>
+      </div>
+
+      <div id="entry-fixed-room-banner" class="hidden" style="background:#dbeafe;border:2px solid #60a5fa;border-radius:12px;padding:14px;margin-bottom:18px;text-align:center;">
+        <div style="font-size:13px;color:#1e40af;font-weight:700;">지정된 모둠 링크로 접속했어요</div>
+        <div id="entry-fixed-room-label" style="font-size:22px;font-weight:800;color:#1e3a8a;margin-top:4px;"></div>
+        <div id="entry-fixed-room-count" style="font-size:13px;color:#1d4ed8;margin-top:4px;"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="student-name-input">2. 학번과 이름 입력하기 (예: 40501 김민준)</label>
+        <input type="text" id="student-name-input" maxlength="20" placeholder="예: 40501 김민준" autocomplete="off" />
+      </div>
+
+      <button id="btn-enter-room" class="btn-primary" style="width:100%;padding:14px;font-size:17px;border-radius:12px;">
+        모둠 채팅방 입장하기
+      </button>
+
+      <div class="rules-mini-box">
+        <div class="rules-mini-title">우리 반 바른말 약속 — 아래 6가지는 전송할 수 없어요!</div>
+        <div class="rules-tags">
+          <span class="rule-tag">1. 예절에 어긋난 말</span>
+          <span class="rule-tag">2. 맞춤법에 틀린 말</span>
+          <span class="rule-tag">3. 이모티콘 (ㅋㅋ, ^^, 그림)</span>
+          <span class="rule-tag">4. 줄임말 (ㅇㅈ, 강추 등)</span>
+          <span class="rule-tag">5. 비속어</span>
+          <span class="rule-tag">6. 신조어 (어쩔티비 등)</span>
+        </div>
+      </div>
+
+      <div class="entry-footer-links">
+        <span id="entry-conn-status">연결 상태 확인 중...</span>
+        <div style="display:flex;gap:8px;">
+          <button id="btn-open-student-db-modal" class="btn-secondary btn-xs">학급 서버 연결</button>
+          <button id="btn-go-teacher" class="btn-secondary btn-xs">교사 대시보드 이동</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW 2: 학생용 모둠 채팅방 ==================== -->
+  <div id="view-student" class="student-chat-layout hidden">
+    <header class="chat-top-header">
+      <div class="chat-room-info">
+        <span id="student-room-pill" class="chat-room-pill">1모둠</span>
+        <div class="chat-user-meta">
+          <div id="student-my-name" style="font-weight:700;font-size:16px;"></div>
+          <div id="student-filter-badge" style="font-size:12px;opacity:0.9;">바른말 지킴이 작동 중</div>
+        </div>
+      </div>
+      <div class="chat-header-right">
+        <span id="student-count-chip" class="status-chip">1/4명 접속 중</span>
+        <button id="btn-leave-room" class="btn-secondary btn-xs" style="background:rgba(255,255,255,0.2);color:#fff;">나가기</button>
+      </div>
+    </header>
+
+    <div class="topic-banner">
+      <span class="topic-banner-tag">대화 주제</span>
+      <span id="student-topic-text" class="topic-banner-content">우리 반 모두가 행복해지는 온라인 대화 약속 정하기</span>
+    </div>
+
+    <div id="student-notice-banner" class="notice-banner hidden">
+      <span>📢 선생님 말씀:</span>
+      <span id="student-notice-text"></span>
+    </div>
+
+    <div class="members-bar">
+      <span style="font-weight:700;">함께 이야기하는 친구들:</span>
+      <div id="student-members-list" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <main id="student-chat-messages" class="chat-messages-area"></main>
+
+    <div id="student-lock-banner" class="lock-banner hidden">
+      잠시 선생님 말씀을 들을 시간이에요! 선생님이 잠금을 풀어 줄 때까지 기다려 주세요.
+    </div>
+
+    <div class="chat-input-bar">
+      <div class="chat-input-row">
+        <input type="text" id="student-msg-input" maxlength="150" placeholder="친구를 존중하며 바른 맞춤법으로 생각을 적어 보세요." autocomplete="off" />
+        <button id="btn-send-msg" class="chat-send-btn">보내기</button>
+      </div>
+      <div class="chat-input-meta">
+        <span>이모티콘, 줄임말, 신조어, 비속어, 맞춤법 오류는 자동으로 안내해 드려요.</span>
+        <span id="student-char-counter">0 / 150자</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW 3: 교사 인증 화면 ==================== -->
+  <div id="view-teacher-auth" class="teacher-auth-wrapper hidden">
+    <div class="entry-card">
+      <div class="entry-header">
+        <span class="entry-badge">교사 전용 관리 시스템</span>
+        <h1 style="font-size:24px;">교사 대시보드 로그인</h1>
+        <p>관리자 비밀번호를 입력해 주세요. (초기 기본값: 1234)</p>
+      </div>
+      <div class="form-group">
+        <label for="teacher-pw-input">관리자 비밀번호</label>
+        <input type="password" id="teacher-pw-input" placeholder="비밀번호 입력" autocomplete="current-password" />
+      </div>
+      <button id="btn-teacher-login" class="btn-primary" style="width:100%;padding:13px;">대시보드 접속</button>
+      <div style="text-align:center;margin-top:16px;">
+        <button id="btn-back-to-lobby" class="btn-secondary btn-xs">학생 대기실로 돌아가기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW 4: 교사 통합 대시보드 ==================== -->
+  <div id="view-teacher" class="hidden">
+    <header class="teacher-header">
+      <div class="teacher-title-area">
+        <h1>바른말 온라인 대화 교사 통합 대시보드 (1~6모둠)</h1>
+        <div class="teacher-badges">
+          <span id="teacher-conn-pill" class="sys-pill demo">로컬 데모 모드</span>
+          <span id="teacher-ai-pill" class="sys-pill ai-off">1차 규칙 필터만 활성 (Gemini 키 미설정)</span>
+        </div>
+      </div>
+      <div class="teacher-header-actions">
+        <button id="btn-export-all-csv" class="btn-success btn-xs" style="padding:8px 12px;">전체 6모둠 CSV 저장</button>
+        <button id="btn-export-all-txt" class="btn-success btn-xs" style="padding:8px 12px;">전체 6모둠 TXT 저장</button>
+        <button id="btn-open-settings" class="btn-primary btn-xs" style="padding:8px 12px;">환경 설정 (Firebase / AI)</button>
+        <button id="btn-teacher-logout" class="btn-secondary btn-xs" style="padding:8px 12px;">로그아웃</button>
+      </div>
+    </header>
+
+    <section class="teacher-toolbar">
+      <div class="toolbar-block">
+        <label for="teacher-topic-input">전체 모둠 대화 주제 (실시간 반영)</label>
+        <div class="inline-input-group">
+          <input type="text" id="teacher-topic-input" maxlength="100" value="우리 반 모두가 행복해지는 온라인 대화 약속 정하기" />
+          <button id="btn-save-topic" class="btn-primary" style="white-space:nowrap;">주제 반영</button>
+        </div>
+      </div>
+
+      <div class="toolbar-block">
+        <label for="teacher-global-notice-input">전체 모둠 실시간 공지 배너</label>
+        <div class="inline-input-group">
+          <input type="text" id="teacher-global-notice-input" maxlength="120" placeholder="전체 모둠에 띄울 공지 입력 (예: 3분 뒤에 모둠 약속을 정리해요!)" />
+          <button id="btn-send-global-notice" class="btn-warning" style="white-space:nowrap;">공지 띄우기</button>
+          <button id="btn-clear-global-notice" class="btn-secondary" style="white-space:nowrap;">내리기</button>
+        </div>
+      </div>
+
+      <div class="toolbar-global-btns">
+        <button id="btn-lock-all" class="btn-danger">전체 잠금</button>
+        <button id="btn-unlock-all" class="btn-secondary">전체 해제</button>
+      </div>
+    </section>
+
+    <main id="teacher-rooms-grid" class="dashboard-grid"></main>
+  </div>
+
+  <!-- ==================== MODAL 1: 학생 바른말 교정 안내 ==================== -->
+  <div id="modal-correction" class="modal-backdrop hidden">
+    <div class="modal-box correction-box">
+      <div class="modal-head">
+        <h2>잠깐만요! 바른 말로 고쳐 볼까요?</h2>
+        <button id="btn-close-correction" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:#991b1b;margin-bottom:6px;">전송되지 않은 이유 (해당 항목)</div>
+      <div id="correction-cats" class="correction-cats"></div>
+
+      <div class="correction-original">
+        <strong>내가 쓴 말:</strong> <span id="correction-original-text"></span>
+      </div>
+
+      <div id="correction-explain-text" class="correction-explain"></div>
+
+      <div class="correction-suggestion-card">
+        <div class="correction-suggestion-label">이렇게 바르게 고쳐 써 볼까요?</div>
+        <div id="correction-suggestion-text" class="correction-suggestion-text"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btn-correction-manual" class="btn-secondary">직접 다시 쓸게요</button>
+        <button id="btn-correction-apply" class="btn-success">추천 문장으로 고쳐 쓰기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2: 교사 환경 설정 ==================== -->
+  <div id="modal-settings" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>환경 설정 (실시간 동기화 · AI · 보안)</h2>
+        <button id="btn-close-settings" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>1. Firebase Realtime Database 연동 (서로 다른 기기 실시간 동기화)</h3>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="cfg-firebase-url" style="font-size:13px;">Firebase Realtime Database URL</label>
+          <input type="url" id="cfg-firebase-url" placeholder="https://프로젝트ID-default-rtdb.asia-southeast1.firebasedatabase.app" />
+          <div class="help-text">
+            • 비워 두면 같은 브라우저의 여러 탭에서 테스트할 수 있는 <strong>로컬 데모 모드</strong>로 동작합니다.<br />
+            • 보안 원칙: 모둠 공유 링크에는 공개 Database URL 주소만 연결되며 API 키는 포함되지 않습니다.
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>2. Google Gemini AI 언어·맞춤법 정밀 검사 (교사 PC 중계 방식)</h3>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="cfg-gemini-key" style="font-size:13px;">Gemini API 키 (교사 PC에만 안전 저장)</label>
+          <input type="password" id="cfg-gemini-key" placeholder="AIza..." autocomplete="off" />
+        </div>
+        <div class="form-group" style="margin-bottom:6px;">
+          <label for="cfg-gemini-model" style="font-size:13px;">사용할 Gemini 모델</label>
+          <select id="cfg-gemini-model">
+            <option value="gemini-2.5-flash">gemini-2.5-flash (권장 · 빠르고 정확)</option>
+            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (초고속 경량)</option>
+            <option value="gemini-2.0-flash">gemini-2.0-flash (안정형)</option>
+          </select>
+          <div class="help-text">
+            • API 키는 학생 기기로 전송되지 않으며, 교사 대시보드가 열려 있는 동안 학생 메시지를 실시간 중계 검사합니다.<br />
+            • 키를 입력하지 않거나 통신 장애 시에도 클라이언트 1차 규칙 방어막이 6대 금지 표현을 차단합니다.
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>3. 교사 관리자 비밀번호 변경</h3>
+        <div class="form-group" style="margin-bottom:6px;">
+          <label for="cfg-new-pw" style="font-size:13px;">새 비밀번호 (변경할 때만 입력, 4자 이상)</label>
+          <input type="password" id="cfg-new-pw" placeholder="변경하지 않으려면 비워 두세요" autocomplete="new-password" />
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btn-reset-demo-mode" class="btn-secondary">데모 모드로 전환</button>
+        <button id="btn-save-settings" class="btn-primary">설정 저장 및 적용</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 3: 모둠 QR코드 & 접속 링크 ==================== -->
+  <div id="modal-qr" class="modal-backdrop hidden">
+    <div class="modal-box" style="max-width:440px;">
+      <div class="modal-head">
+        <h2 id="qr-modal-title">1모둠 접속 안내</h2>
+        <button id="btn-close-qr" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+      <div class="qr-container">
+        <div id="qr-canvas-box" class="qr-canvas-box"></div>
+        <div id="qr-url-display" class="url-copy-box"></div>
+        <div class="help-text" style="text-align:center;">
+          학생 태블릿·크롬북으로 QR코드를 스캔하거나 주소를 복사해 전달하세요.<br />
+          (보안을 위해 Gemini API 키는 링크에 포함되지 않습니다.)
+        </div>
+        <button id="btn-copy-qr-url" class="btn-primary" style="width:100%;">접속 링크 복사하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: 모둠 차단 기록 확인 ==================== -->
+  <div id="modal-blocked-logs" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="blocked-modal-title">1모둠 바른말 교정(차단) 기록</h2>
+        <button id="btn-close-blocked" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+      <div id="blocked-logs-list" style="max-height:55vh;overflow-y:auto;"></div>
+      <div class="modal-actions" style="margin-top:14px;">
+        <button id="btn-ok-blocked" class="btn-primary">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 5: 학생 수동 서버 연결 ==================== -->
+  <div id="modal-student-db" class="modal-backdrop hidden">
+    <div class="modal-box" style="max-width:460px;">
+      <div class="modal-head">
+        <h2>학급 실시간 서버 연결</h2>
+        <button id="btn-close-student-db" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+      <div class="form-group">
+        <label for="student-db-url-input">선생님이 안내한 Firebase Database URL</label>
+        <input type="url" id="student-db-url-input" placeholder="https://프로젝트ID-default-rtdb.asia-southeast1.firebasedatabase.app" />
+        <div class="help-text">선생님이 나눠 준 QR코드나 모둠 링크로 접속하면 자동으로 연결되므로 평소에는 입력하지 않아도 됩니다.</div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-clear-student-db" class="btn-secondary">연결 해제(데모)</button>
+        <button id="btn-save-student-db" class="btn-primary">연결하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast-banner hidden"></div>
+
+  <script>
+    "use strict";
+
+    /* =========================================================================
+       1. 상수 및 기본 설정 (API 키 하드코딩 절대 금지)
+       ========================================================================= */
+    const ROOM_COUNT = 6;
+    const MAX_MEMBERS_PER_ROOM = 4;
+    const MAX_MSG_LENGTH = 150;
+    const SEND_COOLDOWN_MS = 2000;
+    const MEMBER_TIMEOUT_MS = 35000;
+    const HEARTBEAT_INTERVAL_MS = 10000;
+    const DEFAULT_TOPIC = "우리 반 모두가 행복해지는 온라인 대화 약속 정하기";
+    const ROOM_COLORS = ["#2563eb", "#059669", "#d97706", "#7c3aed", "#db2777", "#0891b2"];
+
+    const STORAGE_KEYS = {
+      FIREBASE_URL: "bm_chat_firebase_url_v1",
+      GEMINI_KEY: "bm_chat_teacher_gemini_key_v1", // 교사 브라우저 전용
+      GEMINI_MODEL: "bm_chat_teacher_gemini_model_v1",
+      TEACHER_PW_HASH: "bm_chat_teacher_pw_hash_v1",
+      DEMO_DB: "bm_chat_demo_db_v1",
+      STUDENT_NAME: "bm_chat_student_name_v1"
+    };
+
+    const SESSION_KEYS = {
+      TEACHER_AUTH: "bm_chat_teacher_authed_v1",
+      CLIENT_ID: "bm_chat_client_id_v1"
+    };
+
+    /* =========================================================================
+       2. 유틸리티 함수 (XSS 방지, 해시, 시간 포맷, CSV 보안)
+       ========================================================================= */
+    function getClientId() {
+      let id = sessionStorage.getItem(SESSION_KEYS.CLIENT_ID);
+      if (!id) {
+        id = "c_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+        sessionStorage.setItem(SESSION_KEYS.CLIENT_ID, id);
+      }
+      return id;
+    }
+
+    function createEl(tag, options = {}) {
+      const el = document.createElement(tag);
+      if (options.className) el.className = options.className;
+      if (options.text !== undefined) el.textContent = options.text;
+      if (options.attrs) {
+        for (const [k, v] of Object.entries(options.attrs)) {
+          el.setAttribute(k, v);
+        }
+      }
+      return el;
+    }
+
+    function clearEl(el) {
+      while (el.firstChild) el.removeChild(el.firstChild);
+    }
+
+    function showToast(msg, duration = 2600) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.remove("hidden");
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => toast.classList.add("hidden"), duration);
+    }
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const ss = String(d.getSeconds()).padStart(2, "0");
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function formatShortTime(ts) {
+      const d = new Date(ts);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+
+    function formatDateStamp() {
+      const d = new Date();
+      return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+    }
+
+    // OWASP: 비밀번호 해시 (Web Crypto SHA-256 + file:// 환경 폴백)
+    async function hashPassword(plain) {
+      const salted = "bareunmal_edu_salt_2026::" + plain;
+      if (window.crypto && window.crypto.subtle) {
+        const buf = new TextEncoder().encode(salted);
+        const digest = await crypto.subtle.digest("SHA-256", buf);
+        return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+      }
+      // HTTPS가 아닌 로컬 파일 환경용 결정적 해시 폴백
+      let h = 2166136261;
+      for (let i = 0; i < salted.length; i++) {
+        h ^= salted.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return "fnv_" + (h >>> 0).toString(16);
+    }
+
+    function isValidFirebaseUrl(url) {
+      if (!url) return false;
+      try {
+        const u = new URL(url.trim());
+        return u.protocol === "https:" && (
+          u.hostname.endsWith(".firebaseio.com") ||
+          u.hostname.endsWith(".firebasedatabase.app")
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    // OWASP: CSV 수식 주입(Formula Injection) 방어
+    function safeCsvCell(value) {
+      let str = String(value ?? "");
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    function downloadFile(filename, content, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /* =========================================================================
+       3. 1단계 클라이언트 언어·맞춤법 필터링 엔진 (6대 금지 기준)
+       ========================================================================= */
+    const RULE_ENGINE = (() => {
+      // 1) 예절에 어긋난 말 패턴
+      const ETIQUETTE_RULES = [
+        { re: /(?:^|\s)야(?=\s|,|!|\.|너|$)/g, label: "야", explain: "친구를 '야'라고 부르는 것은 존중하지 않는 말투예요." },
+        { re: /야\s*너/g, label: "야 너", explain: "'야 너' 대신 친구의 이름을 다정하게 불러 주세요." },
+        { re: /너\s*때문/g, label: "너 때문", explain: "상대방을 탓하는 말보다 함께 해결할 방법을 이야기해요." },
+        { re: /(?:네|니)가\s*뭔데/g, label: "네가 뭔데", explain: "친구의 의견을 무시하는 표현은 상처를 줄 수 있어요." },
+        { re: /조용히\s*해|입\s*다물|시끄러|시끄럽/g, label: "명령·무시 표현", explain: "명령하는 말투 대신 부드럽게 부탁하는 표현을 써요." },
+        { re: /어쩌라고|그래서\s*어쩌라고/g, label: "어쩌라고", explain: "상대방의 말을 퉁명스럽게 끊는 표현은 예절에 어긋나요." },
+        { re: /너나\s*잘\s*해|신경\s*꺼|알아서\s*해|관심\s*없어|끼지\s*마|나가라|저리\s*가/g, label: "배척·무례한 말", explain: "친구의 마음을 상하게 하는 차가운 표현이에요." },
+        { re: /웃기고\s*있네|한심하|재수\s*없/g, label: "조롱·비난 표현", explain: "친구를 비웃거나 비난하는 말은 사용할 수 없어요." }
+      ];
+
+      // 2) 초등 4학년 빈출 맞춤법 오류 사전
+      const SPELLING_RULES = [
+        { re: /안되요/g, wrong: "
