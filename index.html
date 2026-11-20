@@ -429,6 +429,124 @@
     .inline-input-group input { padding: 8px 12px; font-size: 14px; }
     .toolbar-global-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
+    /* 실시간 맞춤 금칙어·신조어 관리 바 */
+    .custom-rules-bar {
+      background: #fffbeb;
+      border-bottom: 1px solid #fde68a;
+      padding: 12px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .custom-rules-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .custom-rules-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #92400e;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .custom-rules-live-badge {
+      background: #fef3c7;
+      border: 1px solid #f59e0b;
+      color: #b45309;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .custom-rules-form {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .custom-rules-form select {
+      width: auto;
+      min-width: 145px;
+      padding: 7px 10px;
+      font-size: 13px;
+      border-color: #fcd34d;
+    }
+
+    .custom-rules-form input[type="text"] {
+      padding: 7px 11px;
+      font-size: 13px;
+      border-color: #fcd34d;
+    }
+
+    .custom-rule-word-input { width: 250px !important; }
+    .custom-rule-rep-input { width: 220px !important; }
+
+    @media (max-width: 768px) {
+      .custom-rule-word-input,
+      .custom-rule-rep-input { width: 100% !important; }
+    }
+
+    .custom-rules-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-height: 26px;
+    }
+
+    .custom-rule-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid #f59e0b;
+      color: #78350f;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .custom-rule-chip-cat {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 11px;
+    }
+
+    .custom-rule-chip-rep {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    .custom-rule-chip-del {
+      background: #fee2e2;
+      color: #b91c1c;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 11px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .custom-rule-chip-del:hover { background: #dc2626; color: #fff; }
+
     .dashboard-grid {
       padding: 20px 24px 36px;
       display: grid;
@@ -507,9 +625,21 @@
     }
 
     .monitor-msg-item { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; }
-    .monitor-msg-meta { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 3px; }
+    .monitor-msg-meta { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11px; color: #64748b; margin-bottom: 3px; }
     .monitor-msg-sender { font-weight: 700; color: #1e293b; }
+    .monitor-msg-right { display: flex; align-items: center; gap: 6px; }
     .monitor-msg-body { color: #0f172a; word-break: break-word; }
+
+    .quick-ban-btn {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .quick-ban-btn:hover { background: #f59e0b; color: #fff; }
 
     .room-card-actions {
       padding: 8px 10px;
@@ -691,7 +821,7 @@
     </div>
   </div>
 
-  <!-- 최우선 오류 감지기 (메인 스크립트 파싱 실패·런타임 예외 포착) -->
+  <!-- 최우선 오류 감지기 -->
   <script>
     (function () {
       function displayError(msg) {
@@ -729,7 +859,7 @@
     })();
   </script>
 
-  <!-- ==================== VIEW 1: 대기실 / 모둠 입장 (기본 표시) ==================== -->
+  <!-- ==================== VIEW 1: 대기실 / 모둠 입장 ==================== -->
   <div id="view-entry" class="entry-wrapper">
     <div class="entry-card">
       <div class="entry-header">
@@ -772,8 +902,8 @@
           <span class="rule-tag">2. 맞춤법에 틀린 말</span>
           <span class="rule-tag">3. 이모티콘 (ㅋㅋ, ^^, 그림)</span>
           <span class="rule-tag">4. 줄임말 (ㅇㅈ, 강추 등)</span>
-          <span class="rule-tag">5. 비속어</span>
-          <span class="rule-tag">6. 신조어 (어쩔티비 등)</span>
+          <span class="rule-tag">5. 비속어 (한·영/자판변환 포함)</span>
+          <span class="rule-tag">6. 신조어 (어쩔티비, 야르 등)</span>
         </div>
       </div>
 
@@ -897,6 +1027,43 @@
       </div>
     </section>
 
+    <!-- 수업 중 실시간 금칙어·신조어 추가 및 관리 바 -->
+    <section class="custom-rules-bar" aria-label="실시간 금칙어 및 신조어 관리">
+      <div class="custom-rules-top">
+        <div class="custom-rules-title">
+          <span>🛡️ 수업 중 실시간 금칙어·신조어 즉시 차단 관리</span>
+          <span id="custom-rules-count-badge" class="custom-rules-live-badge">전 모둠 실시간 적용 중 · 0개</span>
+        </div>
+        <div class="custom-rules-form">
+          <select id="custom-rule-category" aria-label="금지 유형 선택">
+            <option value="신조어">신조어</option>
+            <option value="비속어">비속어</option>
+            <option value="줄임말">줄임말</option>
+            <option value="예절에 어긋난 말">예절에 어긋난 말</option>
+          </select>
+          <input
+            type="text"
+            id="custom-rule-word"
+            class="custom-rule-word-input"
+            maxlength="40"
+            placeholder="차단할 단어 입력 (쉼표로 여러 개 가능)"
+            autocomplete="off"
+          />
+          <input
+            type="text"
+            id="custom-rule-replacement"
+            class="custom-rule-rep-input"
+            maxlength="40"
+            placeholder="바른 대체어 (선택, 예: 정말 멋지다)"
+            autocomplete="off"
+          />
+          <button id="btn-add-custom-rule" class="btn-warning btn-xs" style="padding:8px 14px;font-size:13px;">즉시 차단 추가</button>
+          <button id="btn-clear-custom-rules" class="btn-secondary btn-xs hidden" style="padding:8px 11px;font-size:12px;">전체 비우기</button>
+        </div>
+      </div>
+      <div id="custom-rules-chips" class="custom-rules-chips"></div>
+    </section>
+
     <main id="teacher-rooms-grid" class="dashboard-grid"></main>
   </div>
 
@@ -964,7 +1131,7 @@
           </select>
           <div class="help-text">
             • API 키는 학생 기기나 공유 링크에 절대 노출되지 않으며, 교사 대시보드가 열려 있는 동안 학생 메시지를 중계 검사합니다.<br />
-            • 키 미입력 또는 네트워크 지연 시에도 클라이언트 1차 규칙 방어막이 6대 금지 표현을 즉시 차단합니다.
+            • 키 미입력 또는 네트워크 지연 시에도 클라이언트 1차 규칙 방어막(교사 추가 금칙어 포함)이 즉시 차단합니다.
           </div>
         </div>
       </div>
@@ -1042,7 +1209,7 @@
     "use strict";
 
     /* =========================================================================
-       1. 상수 및 안전한 저장소 래퍼 (브라우저 보안 제한 환경 대응)
+       1. 상수 및 안전한 저장소 래퍼
        ========================================================================= */
     const ROOM_COUNT = 6;
     const MAX_MEMBERS_PER_ROOM = 4;
@@ -1053,6 +1220,7 @@
     const REST_POLL_INTERVAL_MS = 2500;
     const DEFAULT_TOPIC = "우리 반 모두가 행복해지는 온라인 대화 약속 정하기";
     const ROOM_COLORS = ["#2563eb", "#059669", "#d97706", "#7c3aed", "#db2777", "#0891b2"];
+    const VALID_RULE_CATEGORIES = ["신조어", "비속어", "줄임말", "예절에 어긋난 말"];
 
     const STORAGE_KEYS = {
       FIREBASE_URL: "bm_chat_firebase_url_v1",
@@ -1264,8 +1432,13 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    function escapeRegex(str) {
+      return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
     /* =========================================================================
-       4. 1단계 클라이언트 언어·맞춤법 필터링 엔진 (6대 금지 기준, 구형 브라우저 호환)
+       4. 1단계 클라이언트 언어·맞춤법 필터링 엔진
+          (6대 금지 기준 + 한영 자판/자모 분해 + 교사 실시간 추가 금칙어 통합)
        ========================================================================= */
     const RULE_ENGINE = (() => {
       const ETIQUETTE_RULES = [
@@ -1277,6 +1450,17 @@
         { re: /어쩌라고|그래서\s*어쩌라고/g, label: "어쩌라고", explain: "상대방의 말을 퉁명스럽게 끊는 표현은 예절에 어긋나요." },
         { re: /너나\s*잘\s*해|신경\s*꺼|알아서\s*해|관심\s*없어|끼지\s*마|나가라|저리\s*가/g, label: "배척·무례한 말", explain: "친구의 마음을 상하게 하는 차가운 표현이에요." },
         { re: /웃기고\s*있네|한심하|재수\s*없/g, label: "조롱·비난 표현", explain: "친구를 비웃거나 비난하는 말은 사용할 수 없어요." }
+      ];
+
+      const BULLYING_WORDS = [
+        "찐따", "왕따", "쓰레기", "바보", "멍청이",
+        "한심하다", "역겹다", "못생겼다", "뚱뚱하다",
+        "너같은건", "넌 필요없어",
+        "니엄마", "니애미", "니애비",
+        "느금마", "느개비", "패드립",
+        "kill yourself", "go die",
+        "i hate you", "nobody likes you",
+        "you are worthless", "you are trash"
       ];
 
       const SPELLING_RULES = [
@@ -1348,27 +1532,183 @@
         { word: "좋댓구알", right: "좋아요와 댓글" }
       ];
 
-      const PROFANITY_WORDS = [
-        "시발", "씨발", "시팔", "씨팔", "ㅅㅂ", "ㅆㅂ", "병신", "ㅂㅅ",
-        "지랄", "ㅈㄹ", "개새끼", "새끼", "썅", "존나", "ㅈㄴ", "졸라",
-        "닥쳐", "꺼져", "뒤져", "뒈져", "죽어", "미친", "미쳤", "또라이",
-        "돌아이", "쓰레기", "바보", "멍청이", "등신", "호구", "찌질",
-        "엿먹", "니미", "느금", "애미", "애비", "씹", "좆", "좇",
-        "개같", "개짜증", "개소리", "헛소리", "쳐먹", "쳐맞", "대가리",
-        "주둥이", "아가리", "디질"
+      const KOREAN_BAD_WORDS = [
+        "씨발", "시발", "시팔", "씨팔", "씹", "좆", "좇", "존나", "졸라",
+        "병신", "븅신", "개새끼", "새끼", "지랄", "염병", "썅",
+        "닥쳐", "꺼져", "뒤져", "디져", "뒈져", "죽어",
+        "미친놈", "미친년", "미친", "미쳤",
+        "개자식", "개소리", "헛소리", "엿먹어", "엿먹",
+        "씹새끼", "씹창", "좆같아", "좆까",
+        "또라이", "돌아이", "등신", "호구", "찌질",
+        "니미", "느금", "애미", "애비",
+        "개같", "개짜증", "쳐먹", "쳐맞",
+        "대가리", "주둥이", "아가리", "디질"
+      ];
+
+      const ENGLISH_BAD_WORDS = [
+        "fuck", "fucking", "fucker", "shit",
+        "bullshit", "bitch", "bastard",
+        "asshole", "ass", "damn", "dick", "piss",
+        "motherfucker", "idiot", "stupid",
+        "moron", "loser", "dumb", "jerk",
+        "fool", "ugly", "shut up", "stfu",
+        "wtf", "gtfo"
+      ];
+
+      const KOREAN_TO_ENGLISH_KEYBOARD = [
+        "tlqkf", "Tltqkf", "qudtls", "rotoRl", "wlfkf",
+        "whssk", "ekrcu", "Rjwu", "wnrdj",
+        "tq", "qt", "wf", "ws"
+      ];
+
+      const ENGLISH_TO_KOREAN_KEYBOARD = [
+        "ㄹㅕㅊㅏ", "ㄴㅗㅑㅅ", "ㅠㅑㅅㅊㅗ", "ㅇㅁㅡㅜ",
+        "ㅁㄴㄴ", "ㅈㅅㄹ", "ㄴㅅㄹㅕ"
+      ];
+
+      const ABBREVIATED_BAD_WORDS = [
+        "ㅅㅂ", "ㅆㅂ", "ㅂㅅ", "ㅈㄹ",
+        "ㅈㄴ", "ㄲㅈ", "ㄷㅊ", "ㅁㅊ",
+        "ㅅㄲ", "ㄴㄱㅁ", "ㄴㅇㅁ",
+        "ㅂㅅㄴ", "ㅗㅗ"
+      ];
+
+      const ALL_PROFANITY_WORDS = [
+        ...KOREAN_BAD_WORDS,
+        ...ENGLISH_BAD_WORDS,
+        ...KOREAN_TO_ENGLISH_KEYBOARD,
+        ...ENGLISH_TO_KOREAN_KEYBOARD,
+        ...ABBREVIATED_BAD_WORDS
       ];
 
       const NEOLOGISM_WORDS = [
+        "샤갈", "샤걀", "야르", "tirkf", "difm",
         "어쩔티비", "저쩔티비", "어쩔", "저쩔", "뇌절", "억까", "억빠",
         "킹받", "갓생", "폼미쳤", "폼 미쳤", "중꺾마", "알잘딱깔센",
         "오히려좋아", "현타", "손절", "급발진", "무지성", "개이득",
         "개꿀", "개노잼", "핵노잼", "실화냐", "레게노", "스껄",
-        "잼민이", "틀딱", "찐따", "관종", "어그로", "티엠아이", "TMI",
+        "잼민이", "틀딱", "관종", "어그로", "티엠아이", "TMI",
         "JMT", "지리네", "지린다", "오지네", "오진다", "쩔어", "쩐다",
         "에바야", "에바참치", "에바"
       ];
 
-      // 구형 크롬/웹뷰 호환을 위해 동적 생성 + 폴백 적용
+      const EN_TO_KO_MAP = {
+        q: "ㅂ", w: "ㅈ", e: "ㄷ", r: "ㄱ", t: "ㅅ",
+        y: "ㅛ", u: "ㅕ", i: "ㅑ", o: "ㅐ", p: "ㅔ",
+        a: "ㅁ", s: "ㄴ", d: "ㅇ", f: "ㄹ", g: "ㅎ",
+        h: "ㅗ", j: "ㅓ", k: "ㅏ", l: "ㅣ",
+        z: "ㅋ", x: "ㅌ", c: "ㅊ", v: "ㅍ",
+        b: "ㅠ", n: "ㅜ", m: "ㅡ",
+        Q: "ㅃ", W: "ㅉ", E: "ㄸ", R: "ㄲ",
+        T: "ㅆ", O: "ㅒ", P: "ㅖ"
+      };
+
+      const CHO = [
+        "ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ",
+        "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ",
+        "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"
+      ];
+
+      const JUNG = [
+        "ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ",
+        "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ",
+        "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"
+      ];
+
+      const JONG = [
+        "", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ",
+        "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ",
+        "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ",
+        "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"
+      ];
+
+      function normalizeText(text) {
+        return String(text || "")
+          .toLowerCase()
+          .normalize("NFC")
+          .replace(/[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣ]/g, "");
+      }
+
+      function reduceRepeatedCharacters(text) {
+        return String(text || "").replace(/(.)\1{2,}/g, "$1");
+      }
+
+      function convertEnglishKeyboard(text) {
+        return [...String(text || "")].map(ch => EN_TO_KO_MAP[ch] || ch).join("");
+      }
+
+      function disassembleHangul(text) {
+        let result = "";
+        for (const ch of String(text || "")) {
+          const code = ch.charCodeAt(0);
+          if (code >= 0xAC00 && code <= 0xD7A3) {
+            const index = code - 0xAC00;
+            const cho = Math.floor(index / 588);
+            const jung = Math.floor((index % 588) / 28);
+            const jong = index % 28;
+            result += CHO[cho] + JUNG[jung] + JONG[jong];
+          } else {
+            result += ch;
+          }
+        }
+        return result;
+      }
+
+      function collapseDisassembledJamo(jamoText) {
+        return String(jamoText || "")
+          .replace(/([ㅏ-ㅣ])(?:ㅇ\1)+/g, "$1")
+          .replace(/(.)\1+/g, "$1");
+      }
+
+      function buildInputVariants(original) {
+        const lowerRaw = String(original || "").toLowerCase().normalize("NFC");
+        const normalized = normalizeText(original);
+        const reduced = normalizeText(reduceRepeatedCharacters(original));
+        const converted = normalizeText(convertEnglishKeyboard(original));
+        const convertedCollapsed = collapseDisassembledJamo(converted);
+        const disassembled = normalizeText(disassembleHangul(original));
+        const disassembledCollapsed = collapseDisassembledJamo(disassembled);
+
+        return {
+          lowerRaw,
+          normalized,
+          reduced,
+          converted,
+          convertedCollapsed,
+          disassembled,
+          disassembledCollapsed
+        };
+      }
+
+      function matchesWordTarget(variants, word) {
+        const isShortAscii = /^[a-zA-Z]{1,3}$/.test(word);
+        if (isShortAscii) {
+          const lowerWord = word.toLowerCase();
+          const boundaryRe = new RegExp(`(?:^|[^a-z0-9])${escapeRegex(lowerWord)}(?:[^a-z0-9]|$)`, "i");
+          return boundaryRe.test(variants.lowerRaw);
+        }
+
+        const normTarget = normalizeText(word);
+        if (!normTarget) return false;
+
+        const reducedTarget = normalizeText(reduceRepeatedCharacters(word));
+        const jamoTarget = normalizeText(disassembleHangul(word));
+        const jamoTargetCollapsed = collapseDisassembledJamo(jamoTarget);
+        const convertedTarget = normalizeText(convertEnglishKeyboard(word));
+
+        return (
+          variants.normalized.includes(normTarget) ||
+          variants.reduced.includes(normTarget) ||
+          (reducedTarget && variants.reduced.includes(reducedTarget)) ||
+          variants.converted.includes(normTarget) ||
+          (jamoTarget && variants.converted.includes(jamoTarget)) ||
+          (jamoTargetCollapsed && variants.convertedCollapsed.includes(jamoTargetCollapsed)) ||
+          (convertedTarget && variants.disassembled.includes(convertedTarget)) ||
+          (jamoTarget && variants.disassembled.includes(jamoTarget)) ||
+          (jamoTargetCollapsed && variants.disassembledCollapsed.includes(jamoTargetCollapsed))
+        );
+      }
+
       let EMOJI_RE;
       try {
         EMOJI_RE = new RegExp("[\\p{Extended_Pictographic}\\u{1F300}-\\u{1FAFF}\\u{2600}-\\u{27BF}\\u2661\\u2665\\u2605\\u2606\\u266A\\u266B]", "gu");
@@ -1379,31 +1719,75 @@
       const TEXT_EMO_RE = /(\^\^|\^_\^|\^0\^|\^o\^|T_T|T\.T|ToT|;\s*ㅅ\s*;|>_<|><|O_O|o_o|-_-|=_=|:\)|:\(|:D|;\)|<3|\*_\*)/g;
       const JAMO_SEQ_RE = /[ㄱ-ㅎㅏ-ㅣ]+/g;
 
-      function analyze(rawText) {
+      function analyze(rawText, customRules = []) {
         const text = rawText.trim();
+        const variants = buildInputVariants(text);
         const categories = new Set();
         const details = [];
         let suggested = text;
+        let hasCustomReplacement = false;
+
+        // 0. 교사가 수업 중 실시간 추가한 맞춤 금칙어·신조어 최우선 검사
+        const customJamoSet = new Set();
+        for (const rule of customRules) {
+          if (!rule || !rule.word) continue;
+          const w = String(rule.word).trim();
+          if (!w) continue;
+          customJamoSet.add(w);
+          if (matchesWordTarget(variants, w)) {
+            const cat = VALID_RULE_CATEGORIES.includes(rule.category) ? rule.category : "신조어";
+            categories.add(cat);
+            const rep = (rule.replacement || "").trim();
+            if (rep) {
+              hasCustomReplacement = true;
+              details.push(`선생님이 정한 우리 반 금지 표현('${w}')이에요. 대신 '${rep}'처럼 바른 말을 써 볼까요?`);
+              suggested = suggested.replace(new RegExp(escapeRegex(w), "gi"), rep);
+            } else {
+              details.push(`선생님이 정한 우리 반 금지 표현('${w}')은 사용할 수 없어요. 모두가 알기 쉬운 바른 표준어를 써요.`);
+              suggested = suggested.replace(new RegExp(escapeRegex(w), "gi"), "");
+            }
+          }
+        }
 
         // A. 비속어
-        for (const w of PROFANITY_WORDS) {
-          if (text.includes(w)) {
-            categories.add("비속어");
-            details.push(`거칠고 상처를 주는 비속어('${w}')는 절대 사용할 수 없어요.`);
+        const matchedBadWords = [];
+        for (const w of ALL_PROFANITY_WORDS) {
+          if (matchesWordTarget(variants, w)) {
+            matchedBadWords.push(w);
             suggested = suggested.split(w).join("");
           }
         }
-
-        // B. 신조어
-        for (const w of NEOLOGISM_WORDS) {
-          if (text.toUpperCase().includes(w.toUpperCase())) {
-            categories.add("신조어");
-            details.push(`국어사전에 없는 인터넷 신조어('${w}') 대신 모두가 알기 쉬운 표준어를 써요.`);
-            suggested = suggested.replace(new RegExp(w, "gi"), "");
-          }
+        if (matchedBadWords.length > 0) {
+          categories.add("비속어");
+          details.push(`거칠고 상처를 주는 비속어나 변형 표현('${matchedBadWords.slice(0, 2).join("', '")}')은 절대 사용할 수 없어요.`);
         }
 
-        // C. 줄임말 (초성체 + 단어 줄임말)
+        // B. 상대방 비하 및 괴롭힘 표현
+        const matchedBullying = [];
+        for (const w of BULLYING_WORDS) {
+          if (matchesWordTarget(variants, w)) {
+            matchedBullying.push(w);
+          }
+        }
+        if (matchedBullying.length > 0) {
+          categories.add("예절에 어긋난 말");
+          details.push(`친구를 비하하거나 마음을 아프게 하는 표현('${matchedBullying.slice(0, 2).join("', '")}')은 사용할 수 없어요.`);
+        }
+
+        // C. 기본 신조어
+        const matchedNeologisms = [];
+        for (const w of NEOLOGISM_WORDS) {
+          if (matchesWordTarget(variants, w)) {
+            matchedNeologisms.push(w);
+            suggested = suggested.replace(new RegExp(escapeRegex(w), "gi"), "");
+          }
+        }
+        if (matchedNeologisms.length > 0) {
+          categories.add("신조어");
+          details.push(`국어사전에 없는 인터넷 신조어나 유행 표현('${matchedNeologisms.slice(0, 2).join("', '")}') 대신 모두가 알기 쉬운 표준어를 써요.`);
+        }
+
+        // D. 줄임말
         const jamoMatches = text.match(JAMO_SEQ_RE) || [];
         const nonAbbrJamos = [];
         for (const jm of jamoMatches) {
@@ -1411,7 +1795,11 @@
             categories.add("줄임말");
             details.push(`초성 줄임말('${jm}') 대신 '${CHOSUNG_ABBR[jm]}'처럼 온전한 낱말로 써요.`);
             suggested = suggested.replace(jm, CHOSUNG_ABBR[jm]);
-          } else if (!PROFANITY_WORDS.includes(jm)) {
+          } else if (
+            !ABBREVIATED_BAD_WORDS.includes(jm) &&
+            !ENGLISH_TO_KOREAN_KEYBOARD.includes(jm) &&
+            !customJamoSet.has(jm)
+          ) {
             nonAbbrJamos.push(jm);
           }
         }
@@ -1424,7 +1812,7 @@
           }
         }
 
-        // D. 이모티콘
+        // E. 이모티콘
         const emojiHits = text.match(EMOJI_RE) || [];
         const textEmoHits = text.match(TEXT_EMO_RE) || [];
         if (emojiHits.length > 0 || textEmoHits.length > 0 || nonAbbrJamos.length > 0) {
@@ -1437,7 +1825,7 @@
           }
         }
 
-        // E. 예절 위반
+        // F. 예절 위반 문장 패턴
         for (const rule of ETIQUETTE_RULES) {
           if (rule.re.test(text)) {
             categories.add("예절에 어긋난 말");
@@ -1446,7 +1834,7 @@
           rule.re.lastIndex = 0;
         }
 
-        // F. 맞춤법 오류
+        // G. 맞춤법 오류
         for (const rule of SPELLING_RULES) {
           if (rule.re.test(text)) {
             rule.re.lastIndex = 0;
@@ -1458,8 +1846,8 @@
         }
 
         suggested = suggested.replace(/\s{2,}/g, " ").trim();
-        if (categories.has("예절에 어긋난 말") || categories.has("비속어") || suggested.length < 2) {
-          suggested = "친구야, 내 생각은 이래. 너의 의견도 들려줄래?";
+        if (!hasCustomReplacement && (categories.has("예절에 어긋난 말") || categories.has("비속어") || suggested.length < 2)) {
+          suggested = "친구야, 서로 존중하며 바른 말로 이야기해요.";
         } else if (categories.has("신조어") && suggested === text) {
           suggested = "우리 모두 이해할 수 있는 바른 표준어로 이야기해요.";
         }
@@ -1479,25 +1867,31 @@
     /* =========================================================================
        5. 2단계 Gemini AI 초등 국어·맞춤법 정밀 판별기 (교사 PC 전용 호출)
        ========================================================================= */
-    async function callGeminiGatekeeper(text, localResult) {
+    async function callGeminiGatekeeper(text, localResult, customRules = []) {
       const apiKey = (SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim();
       const model = SafeStorage.getLocal(STORAGE_KEYS.GEMINI_MODEL) || "gemini-2.5-flash";
       if (!apiKey) return null;
+
+      const customSummary = customRules
+        .slice(0, 40)
+        .map(r => r.replacement ? `${r.word}(${r.category} -> 추천: ${r.replacement})` : `${r.word}(${r.category})`)
+        .join(", ");
 
       const systemPrompt = [
         "당신은 20년 경력의 초등학교 4학년 국어 교사이자 국립국어원 어문 규범 전문가입니다.",
         "학생이 모둠 온라인 채팅방에 입력한 문장이 아래 6가지 금지 기준 중 하나라도 위반하는지 엄격히 검사하세요.",
         "[6가지 금지 기준]",
-        "1. 예절에 어긋난 말: 비난, 조롱, 무시, 명령조, 과도한 반말/하대('야', '너나 잘해' 등), 온라인 대화 예절 위반",
+        "1. 예절에 어긋난 말: 비난, 조롱, 무시, 비하·괴롭힘, 명령조, 과도한 반말/하대('야', '너나 잘해' 등), 온라인 대화 예절 위반",
         "2. 맞춤법에 틀린 말: 한글 맞춤법·표준어 오류('안되요', '몇일', '어떻해', '설레임' 등) 및 의미를 해치는 심각한 띄어쓰기 오류",
         "3. 이모티콘: 자음·모음 나열('ㅋㅋ', 'ㅎㅎ', 'ㅠㅠ'), 텍스트 표정('^^', 'T_T'), 그림 이모지 일체",
         "4. 줄임말: 임의 줄임말('강추', '노잼', '별다줄') 및 초성체('ㅇㅈ', 'ㄱㅅ', 'ㅂㅂ')",
-        "5. 비속어: 욕설, 비하 발언, 거친 은어",
-        "6. 신조어: 국어사전에 등재되지 않은 인터넷 유행어·밈('어쩔티비', '뇌절', '억까', '킹받네' 등)",
+        "5. 비속어: 한·영 욕설, 비하 발언, 자판 변환·반복 문자 변형 은어",
+        "6. 신조어: 국어사전에 등재되지 않은 인터넷 유행어·밈('어쩔티비', '뇌절', '샤갈', '야르', '킹받네' 등)",
+        customSummary ? `[교사 추가 학급 금지 표현]: ${customSummary}` : "",
         "초등 4학년 친구끼리 예의를 지키는 다정한 반말('안녕, 내 생각은 이래.', '고마워!')이나 존댓말('좋은 생각이에요!')은 허용하세요.",
         "반드시 아래 JSON 형식으로만 응답하세요:",
         '{"allowed": true 또는 false, "categories": ["해당 항목만"], "explanation": "초등 4학년 눈높이 설명 2~3문장", "suggestion": "바르게 고쳐 쓴 추천 문장 1개"}'
-      ].join("\n");
+      ].filter(Boolean).join("\n");
 
       const userPrompt = [
         `학생 입력 문장: "${text}"`,
@@ -1575,6 +1969,7 @@
           globalNotice: "",
           aiRelayLastSeen: 0
         },
+        customRules: {},
         rooms
       };
     }
@@ -1583,6 +1978,9 @@
       const base = createEmptyState();
       if (!raw || typeof raw !== "object") return base;
       base.settings = Object.assign(base.settings, raw.settings || {});
+      if (raw.customRules && typeof raw.customRules === "object") {
+        base.customRules = Object.assign({}, raw.customRules);
+      }
       for (let i = 1; i <= ROOM_COUNT; i++) {
         const key = "room_" + i;
         if (raw.rooms && raw.rooms[key]) {
@@ -1593,7 +1991,7 @@
     }
 
     const DataStore = (() => {
-      let mode = "demo"; // "firebase-sdk" | "firebase-rest" | "demo"
+      let mode = "demo";
       let isInitializing = false;
       let initPromise = Promise.resolve("demo");
       let activeFbUrl = "";
@@ -1646,7 +2044,7 @@
             notify();
           } else if (msg.type === "AI_REQ" && mode === "demo") {
             if (isTeacherAuthenticated() && (SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim()) {
-              const result = await callGeminiGatekeeper(msg.text, msg.localResult);
+              const result = await callGeminiGatekeeper(msg.text, msg.localResult, getCustomRules());
               try { bc.postMessage({ type: "AI_RES", reqId: msg.reqId, result }); } catch {}
             }
           } else if (msg.type === "AI_RES" && pendingDemoAiResolvers.has(msg.reqId)) {
@@ -1689,7 +2087,7 @@
                   continue;
                 }
                 processedRestAiIds.add(reqId);
-                callGeminiGatekeeper(req.text, req.localResult || { allowed: true, categories: [] })
+                callGeminiGatekeeper(req.text, req.localResult || { allowed: true, categories: [] }, getCustomRules())
                   .then(async (result) => {
                     await restRequest(`/aiQueue/${reqId}`, "PATCH", {
                       status: "done",
@@ -1766,7 +2164,6 @@
 
         activeFbUrl = cleanUrl;
 
-        // 1차: HTTPS REST로 DB 주소 및 보안 규칙(읽기 권한) 사전 검증 (학교 방화벽에서도 즉시 판별)
         let restCheckData = null;
         try {
           restCheckData = await withTimeout(restRequest("", "GET"), 5000, "서버 응답 시간 초과");
@@ -1791,7 +2188,6 @@
           console.warn("REST 사전 확인 실패, SDK 시도:", msg);
         }
 
-        // 2차: Firebase SDK WebSocket 실제 연결 여부(.info/connected) 3.5초 검증
         const sdkLoaded = await tryLoadFirebaseSdk();
         if (sdkLoaded) {
           try {
@@ -1842,7 +2238,6 @@
           }
         }
 
-        // 3차: WebSocket 차단 환경(학교 방화벽 등)용 HTTPS REST 실시간 폴링 모드
         try {
           if (restCheckData !== null) {
             mode = "firebase-rest";
@@ -1869,6 +2264,70 @@
         listeners.add(fn);
         fn(state);
         return () => listeners.delete(fn);
+      }
+
+      function getCustomRules() {
+        const raw = state.customRules;
+        if (!raw || typeof raw !== "object") return [];
+        return Object.entries(raw)
+          .filter(([, r]) => r && typeof r.word === "string" && r.word.trim().length > 0)
+          .map(([id, r]) => ({ id, ...r }))
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      }
+
+      async function addCustomRule(word, category, replacement) {
+        if (!isTeacherAuthenticated()) return;
+        const cleanWord = String(word || "").trim().slice(0, 30);
+        if (!cleanWord) return;
+        const cleanCat = VALID_RULE_CATEGORIES.includes(category) ? category : "신조어";
+        const cleanRep = String(replacement || "").trim().slice(0, 40);
+        const id = "cr_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
+        const payload = {
+          word: cleanWord,
+          category: cleanCat,
+          replacement: cleanRep,
+          createdAt: Date.now()
+        };
+
+        if (mode === "firebase-sdk" && fbDb) {
+          await withTimeout(fbDb.ref(`bm_app/customRules/${id}`).set(payload), 4500, "금칙어 등록 시간 초과");
+        } else if (mode === "firebase-rest") {
+          await withTimeout(restRequest(`/customRules/${id}`, "PUT", payload), 5000, "금칙어 등록 시간 초과");
+          await pollRestState();
+        } else {
+          writeDemoState(s => {
+            if (!s.customRules) s.customRules = {};
+            s.customRules[id] = payload;
+          });
+        }
+      }
+
+      async function removeCustomRule(ruleId) {
+        if (!isTeacherAuthenticated() || !ruleId) return;
+        if (mode === "firebase-sdk" && fbDb) {
+          await withTimeout(fbDb.ref(`bm_app/customRules/${ruleId}`).remove(), 4500, "금칙어 삭제 시간 초과");
+        } else if (mode === "firebase-rest") {
+          await withTimeout(restRequest(`/customRules/${ruleId}`, "DELETE"), 5000, "금칙어 삭제 시간 초과");
+          await pollRestState();
+        } else {
+          writeDemoState(s => {
+            if (s.customRules) delete s.customRules[ruleId];
+          });
+        }
+      }
+
+      async function clearAllCustomRules() {
+        if (!isTeacherAuthenticated()) return;
+        if (mode === "firebase-sdk" && fbDb) {
+          await withTimeout(fbDb.ref("bm_app/customRules").remove(), 4500, "금칙어 전체 삭제 시간 초과");
+        } else if (mode === "firebase-rest") {
+          await withTimeout(restRequest("/customRules", "DELETE"), 5000, "금칙어 전체 삭제 시간 초과");
+          await pollRestState();
+        } else {
+          writeDemoState(s => {
+            s.customRules = {};
+          });
+        }
       }
 
       function getActiveMembers(roomNum) {
@@ -2102,7 +2561,7 @@
             }
             const hasKey = Boolean((SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim());
             if (!hasKey) return;
-            const result = await callGeminiGatekeeper(req.text, req.localResult || { allowed: true, categories: [] });
+            const result = await callGeminiGatekeeper(req.text, req.localResult || { allowed: true, categories: [] }, getCustomRules());
             await snap.ref.update({ status: "done", result: result || null, answeredAt: Date.now() });
             setTimeout(() => snap.ref.remove(), 12000);
           });
@@ -2178,6 +2637,7 @@
 
       return {
         init, waitUntilReady, getIsInitializing, getMode, getState, subscribe,
+        getCustomRules, addCustomRule, removeCustomRule, clearAllCustomRules,
         getActiveMembers, getSortedMessages, getBlockedLogs,
         joinMember, heartbeatMember, leaveMember,
         addMessage, logBlockedAttempt,
@@ -2303,9 +2763,11 @@
       document.getElementById("student-topic-text").textContent = state.settings.topic || DEFAULT_TOPIC;
 
       const aiOn = DataStore.isAiRelayOnline();
+      const customCount = DataStore.getCustomRules().length;
+      const customSuffix = customCount > 0 ? ` · 학급 추가 규칙 ${customCount}개` : "";
       document.getElementById("student-filter-badge").textContent = aiOn
-        ? "🤖 AI 정밀 맞춤법·예절 지킴이 작동 중"
-        : "🛡️ 바른말·맞춤법 지킴이 작동 중";
+        ? `🤖 AI 정밀 맞춤법·예절 지킴이 작동 중${customSuffix}`
+        : `🛡️ 바른말·맞춤법 지킴이 작동 중${customSuffix}`;
 
       const noticeText = (room.notice || "").trim() || (state.settings.globalNotice || "").trim();
       const noticeBanner = document.getElementById("student-notice-banner");
@@ -2360,6 +2822,52 @@
       if (wasAtBottom) msgArea.scrollTop = msgArea.scrollHeight;
     }
 
+    function renderCustomRulesBar() {
+      const rules = DataStore.getCustomRules();
+      const badge = document.getElementById("custom-rules-count-badge");
+      const clearBtn = document.getElementById("btn-clear-custom-rules");
+      const chipsWrap = document.getElementById("custom-rules-chips");
+
+      badge.textContent = `전 모둠 실시간 적용 중 · ${rules.length}개`;
+      clearBtn.classList.toggle("hidden", rules.length === 0);
+      clearEl(chipsWrap);
+
+      if (rules.length === 0) {
+        chipsWrap.appendChild(createEl("span", {
+          text: "아직 수업 중 추가된 금칙어가 없습니다. 대화창에서 신조어나 비속어가 보이면 위 입력창에 등록해 즉시 차단하세요.",
+          attrs: { style: "font-size:12px;color:#92400e;" }
+        }));
+        return;
+      }
+
+      rules.forEach(rule => {
+        const chip = createEl("span", { className: "custom-rule-chip" });
+        chip.appendChild(createEl("span", { className: "custom-rule-chip-cat", text: rule.category || "신조어" }));
+        chip.appendChild(createEl("span", { text: rule.word }));
+        if (rule.replacement) {
+          chip.appendChild(createEl("span", {
+            className: "custom-rule-chip-rep",
+            text: `→ ${rule.replacement}`
+          }));
+        }
+        const delBtn = createEl("button", {
+          className: "custom-rule-chip-del",
+          text: "✕",
+          attrs: { type: "button", title: `'${rule.word}' 차단 해제` }
+        });
+        delBtn.addEventListener("click", async () => {
+          try {
+            await DataStore.removeCustomRule(rule.id);
+            showToast(`'${rule.word}' 차단을 해제했습니다.`);
+          } catch (err) {
+            showToast("삭제 실패: " + (err && err.message ? err.message : String(err)));
+          }
+        });
+        chip.appendChild(delBtn);
+        chipsWrap.appendChild(chip);
+      });
+    }
+
     function renderTeacherDashboard(state) {
       if (!isTeacherAuthenticated()) return;
 
@@ -2391,6 +2899,8 @@
       if (document.activeElement !== topicInput) {
         topicInput.value = state.settings.topic || DEFAULT_TOPIC;
       }
+
+      renderCustomRulesBar();
 
       const grid = document.getElementById("teacher-rooms-grid");
       clearEl(grid);
@@ -2459,7 +2969,24 @@
             const item = createEl("div", { className: "monitor-msg-item" });
             const meta = createEl("div", { className: "monitor-msg-meta" });
             meta.appendChild(createEl("span", { className: "monitor-msg-sender", text: msg.sender }));
-            meta.appendChild(createEl("span", { text: formatTime(msg.timestamp) }));
+
+            const rightMeta = createEl("div", { className: "monitor-msg-right" });
+            rightMeta.appendChild(createEl("span", { text: formatTime(msg.timestamp) }));
+            const banPickBtn = createEl("button", {
+              className: "quick-ban-btn",
+              text: "+금칙어",
+              attrs: { type: "button", title: "이 문장에서 금칙어·신조어를 골라 상단 입력창에 불러오기" }
+            });
+            banPickBtn.addEventListener("click", () => {
+              const wordInput = document.getElementById("custom-rule-word");
+              wordInput.value = msg.text;
+              wordInput.focus();
+              wordInput.select();
+              showToast("상단 금칙어 입력창에 문장을 불러왔습니다. 차단할 단어만 남기고 추가하세요.");
+            });
+            rightMeta.appendChild(banPickBtn);
+
+            meta.appendChild(rightMeta);
             item.appendChild(meta);
             item.appendChild(createEl("div", { className: "monitor-msg-body", text: msg.text }));
             feed.appendChild(item);
@@ -2634,7 +3161,8 @@
       sendBtn.appendChild(document.createTextNode("검사 중..."));
 
       try {
-        const localResult = RULE_ENGINE.analyze(rawText);
+        const customRules = DataStore.getCustomRules();
+        const localResult = RULE_ENGINE.analyze(rawText, customRules);
         let finalVerdict = localResult;
 
         if (DataStore.isAiRelayOnline()) {
@@ -2672,8 +3200,56 @@
     }
 
     /* =========================================================================
-       10. 교사 관리 도구 (링크/QR, 차단 로그, CSV/TXT 저장)
+       10. 교사 관리 도구 (맞춤 금칙어 추가/삭제, 링크/QR, 차단 로그, CSV/TXT 저장)
        ========================================================================= */
+    async function handleAddCustomRuleFromUi() {
+      if (!isTeacherAuthenticated()) return;
+      const catEl = document.getElementById("custom-rule-category");
+      const wordEl = document.getElementById("custom-rule-word");
+      const repEl = document.getElementById("custom-rule-replacement");
+      const addBtn = document.getElementById("btn-add-custom-rule");
+
+      const rawInput = wordEl.value.trim();
+      if (!rawInput) {
+        showToast("차단할 금칙어나 신조어를 입력해 주세요.");
+        wordEl.focus();
+        return;
+      }
+
+      const category = catEl.value;
+      const replacement = repEl.value.trim();
+      const words = rawInput
+        .split(",")
+        .map(w => w.trim())
+        .filter(w => w.length > 0);
+
+      if (words.length === 0) return;
+
+      const existing = DataStore.getCustomRules().map(r => r.word.toLowerCase());
+      const uniqueNewWords = [...new Set(words)].filter(w => !existing.includes(w.toLowerCase()));
+
+      if (uniqueNewWords.length === 0) {
+        showToast("이미 등록되어 있는 금칙어입니다.");
+        wordEl.select();
+        return;
+      }
+
+      addBtn.disabled = true;
+      try {
+        for (const w of uniqueNewWords) {
+          await DataStore.addCustomRule(w, category, uniqueNewWords.length === 1 ? replacement : "");
+        }
+        wordEl.value = "";
+        repEl.value = "";
+        wordEl.focus();
+        showToast(`'${uniqueNewWords.join(", ")}' (${category})를 전 모둠에 즉시 차단 적용했습니다.`);
+      } catch (err) {
+        showToast("금칙어 추가 실패: " + (err && err.message ? err.message : String(err)), 4000);
+      } finally {
+        addBtn.disabled = false;
+      }
+    }
+
     async function copyRoomLink(roomNum) {
       const url = buildShareUrl(roomNum);
       try {
@@ -2927,6 +3503,22 @@
         showToast("전체 모둠 채팅 잠금을 해제했습니다.");
       });
 
+      // 실시간 맞춤 금칙어·신조어 이벤트
+      document.getElementById("btn-add-custom-rule").addEventListener("click", handleAddCustomRuleFromUi);
+      document.getElementById("custom-rule-word").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.isComposing) handleAddCustomRuleFromUi();
+      });
+      document.getElementById("custom-rule-replacement").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.isComposing) handleAddCustomRuleFromUi();
+      });
+      document.getElementById("btn-clear-custom-rules").addEventListener("click", async () => {
+        if (!isTeacherAuthenticated()) return;
+        if (window.confirm("수업 중 추가한 금칙어·신조어 목록을 모두 비우시겠습니까?")) {
+          await DataStore.clearAllCustomRules();
+          showToast("추가된 금칙어 목록을 모두 비웠습니다.");
+        }
+      });
+
       document.getElementById("btn-export-all-csv").addEventListener("click", () => exportAllRooms("csv"));
       document.getElementById("btn-export-all-txt").addEventListener("click", () => exportAllRooms("txt"));
 
@@ -3008,7 +3600,6 @@
       const savedName = SafeStorage.getLocal(STORAGE_KEYS.STUDENT_NAME);
       if (savedName) document.getElementById("student-name-input").value = savedName;
 
-      // 먼저 즉시 화면을 그려 외부 네트워크 응답을 기다리지 않도록 보장
       DataStore.subscribe((state) => {
         if (currentView === "entry") renderEntryView(state);
         else if (currentView === "student") renderStudentView(state);
@@ -3027,7 +3618,6 @@
         renderEntryView(DataStore.getState());
       }
 
-      // 백그라운드에서 저장된 Firebase 서버 연결 시도 (화면 차단 없음)
       const savedFbUrl = normalizeFirebaseUrl(SafeStorage.getLocal(STORAGE_KEYS.FIREBASE_URL));
       await DataStore.init(savedFbUrl);
       if (currentView === "teacher" && isTeacherAuthenticated()) {
