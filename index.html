@@ -1219,7 +1219,15 @@
     }
 
     function normalizeFirebaseUrl(url) {
-      return String(url || "").trim().replace(/\/+$/, "");
+      const trimmed = String(url || "").trim();
+      if (!trimmed) return "";
+      try {
+        const u = new URL(trimmed);
+        if (u.protocol === "https:" && (u.hostname.endsWith(".firebaseio.com") || u.hostname.endsWith(".firebasedatabase.app"))) {
+          return u.origin;
+        }
+      } catch {}
+      return trimmed.replace(/\/+$/, "");
     }
 
     function isValidFirebaseUrl(url) {
@@ -1586,6 +1594,8 @@
 
     const DataStore = (() => {
       let mode = "demo"; // "firebase-sdk" | "firebase-rest" | "demo"
+      let isInitializing = false;
+      let initPromise = Promise.resolve("demo");
       let activeFbUrl = "";
       let fbDb = null;
       let restPollTimer = null;
@@ -1704,7 +1714,45 @@
         restPollTimer = null;
       }
 
-      async function init(firebaseUrl) {
+      function withTimeout(promise, ms, label) {
+        return new Promise((resolve, reject) => {
+          const t = setTimeout(() => reject(new Error(label || "요청 시간 초과")), ms);
+          Promise.resolve(promise).then(
+            (v) => { clearTimeout(t); resolve(v); },
+            (e) => { clearTimeout(t); reject(e); }
+          );
+        });
+      }
+
+      async function activateRestMode() {
+        if (aiQueueRef) { try { aiQueueRef.off(); } catch {} aiQueueRef = null; }
+        if (fbDb) { try { fbDb.ref().off(); } catch {} fbDb = null; }
+        clearInterval(restPollTimer);
+        const data = await withTimeout(restRequest("", "GET"), 5000, "Firebase REST 연결 시간 초과");
+        mode = "firebase-rest";
+        state = mergeRawState(data);
+        notify();
+        restPollTimer = setInterval(pollRestState, REST_POLL_INTERVAL_MS);
+        return mode;
+      }
+
+      function init(firebaseUrl) {
+        isInitializing = true;
+        notify();
+        initPromise = _initInternal(firebaseUrl).finally(() => {
+          isInitializing = false;
+          notify();
+        });
+        return initPromise;
+      }
+
+      async function waitUntilReady() {
+        try { await initPromise; } catch {}
+      }
+
+      function getIsInitializing() { return isInitializing; }
+
+      async function _initInternal(firebaseUrl) {
         cleanupConnections();
         const cleanUrl = normalizeFirebaseUrl(firebaseUrl);
 
@@ -1718,6 +1766,32 @@
 
         activeFbUrl = cleanUrl;
 
+        // 1차: HTTPS REST로 DB 주소 및 보안 규칙(읽기 권한) 사전 검증 (학교 방화벽에서도 즉시 판별)
+        let restCheckData = null;
+        try {
+          restCheckData = await withTimeout(restRequest("", "GET"), 5000, "서버 응답 시간 초과");
+        } catch (e) {
+          const msg = String(e && e.message || "");
+          if (msg.includes("HTTP 401") || msg.includes("HTTP 403")) {
+            mode = "demo";
+            activeFbUrl = "";
+            state = readDemoState();
+            notify();
+            showToast("Firebase 보안 규칙(Rules)에서 접근이 차단되었습니다. 허용 시간과 [게시] 상태를 확인해 주세요.", 5000);
+            return mode;
+          }
+          if (msg.includes("HTTP 404")) {
+            mode = "demo";
+            activeFbUrl = "";
+            state = readDemoState();
+            notify();
+            showToast("Firebase Database URL을 찾을 수 없습니다(404). 주소를 다시 확인해 주세요.", 5000);
+            return mode;
+          }
+          console.warn("REST 사전 확인 실패, SDK 시도:", msg);
+        }
+
+        // 2차: Firebase SDK WebSocket 실제 연결 여부(.info/connected) 3.5초 검증
         const sdkLoaded = await tryLoadFirebaseSdk();
         if (sdkLoaded) {
           try {
@@ -1728,33 +1802,63 @@
             } else {
               app = window.firebase.initializeApp({ databaseURL: cleanUrl });
             }
-            fbDb = app.database();
-            mode = "firebase-sdk";
+            const candidateDb = app.database();
 
-            fbDb.ref("bm_app").on("value", (snap) => {
-              state = mergeRawState(snap.val());
-              notify();
+            const wsConnected = await new Promise((resolve) => {
+              let done = false;
+              const connRef = candidateDb.ref(".info/connected");
+              const timer = setTimeout(() => {
+                if (!done) { done = true; connRef.off(); resolve(false); }
+              }, 3500);
+              connRef.on("value", (snap) => {
+                if (!done && snap.val() === true) {
+                  done = true;
+                  clearTimeout(timer);
+                  connRef.off();
+                  resolve(true);
+                }
+              });
             });
-            return mode;
+
+            if (wsConnected) {
+              fbDb = candidateDb;
+              mode = "firebase-sdk";
+              if (restCheckData) state = mergeRawState(restCheckData);
+              notify();
+
+              fbDb.ref("bm_app").on("value", (snap) => {
+                state = mergeRawState(snap.val());
+                notify();
+              }, (err) => {
+                console.warn("Firebase 읽기 권한 오류:", err);
+                showToast("Firebase 읽기 권한이 차단되었습니다. 보안 규칙(Rules) 시간을 확인해 주세요.", 4500);
+              });
+              return mode;
+            } else {
+              console.warn("Firebase WebSocket 차단/지연 감지 -> HTTPS REST 폴링 모드로 자동 전환");
+            }
           } catch (e) {
             console.warn("Firebase SDK 초기화 실패, REST 폴백 시도:", e);
           }
         }
 
+        // 3차: WebSocket 차단 환경(학교 방화벽 등)용 HTTPS REST 실시간 폴링 모드
         try {
-          const data = await restRequest("", "GET");
-          mode = "firebase-rest";
-          state = mergeRawState(data);
-          notify();
-          restPollTimer = setInterval(pollRestState, REST_POLL_INTERVAL_MS);
-          return mode;
+          if (restCheckData !== null) {
+            mode = "firebase-rest";
+            state = mergeRawState(restCheckData);
+            notify();
+            restPollTimer = setInterval(pollRestState, REST_POLL_INTERVAL_MS);
+            return mode;
+          }
+          return await activateRestMode();
         } catch (e) {
           console.warn("Firebase 서버 접근 불가, 데모 모드 전환:", e);
           mode = "demo";
           activeFbUrl = "";
           state = readDemoState();
           notify();
-          showToast("Firebase 서버에 연결할 수 없어 로컬 데모 모드로 전환했습니다.", 3600);
+          showToast("Firebase 서버에 연결할 수 없어 로컬 데모 모드로 전환했습니다.", 4000);
           return mode;
         }
       }
@@ -1797,10 +1901,20 @@
         const payload = { name, joinedAt: Date.now(), lastSeen: Date.now() };
         if (mode === "firebase-sdk" && fbDb) {
           const ref = fbDb.ref(`bm_app/rooms/room_${roomNum}/members/${clientId}`);
-          await ref.set(payload);
-          ref.onDisconnect().remove();
+          try {
+            await withTimeout(ref.set(payload), 4500, "SDK_TIMEOUT");
+            ref.onDisconnect().remove();
+          } catch (err) {
+            if (String(err && err.message) === "SDK_TIMEOUT" && activeFbUrl) {
+              await activateRestMode();
+              await withTimeout(restRequest(`/rooms/room_${roomNum}/members/${clientId}`, "PUT", payload), 5000, "서버 입장 응답 시간 초과");
+              await pollRestState();
+            } else {
+              throw err;
+            }
+          }
         } else if (mode === "firebase-rest") {
-          await restRequest(`/rooms/room_${roomNum}/members/${clientId}`, "PUT", payload);
+          await withTimeout(restRequest(`/rooms/room_${roomNum}/members/${clientId}`, "PUT", payload), 5000, "서버 입장 응답 시간 초과");
           await pollRestState();
         } else {
           writeDemoState(s => { s.rooms["room_" + roomNum].members[clientId] = payload; });
@@ -1833,9 +1947,19 @@
       async function addMessage(roomNum, sender, text) {
         const msg = { roomNum, sender, text, timestamp: Date.now() };
         if (mode === "firebase-sdk" && fbDb) {
-          await fbDb.ref(`bm_app/rooms/room_${roomNum}/messages`).push(msg);
+          try {
+            await withTimeout(fbDb.ref(`bm_app/rooms/room_${roomNum}/messages`).push(msg), 4500, "SDK_TIMEOUT");
+          } catch (err) {
+            if (String(err && err.message) === "SDK_TIMEOUT" && activeFbUrl) {
+              await activateRestMode();
+              await withTimeout(restRequest(`/rooms/room_${roomNum}/messages`, "POST", msg), 5000, "메시지 전송 시간 초과");
+              await pollRestState();
+            } else {
+              throw err;
+            }
+          }
         } else if (mode === "firebase-rest") {
-          await restRequest(`/rooms/room_${roomNum}/messages`, "POST", msg);
+          await withTimeout(restRequest(`/rooms/room_${roomNum}/messages`, "POST", msg), 5000, "메시지 전송 시간 초과");
           await pollRestState();
         } else {
           const id = "m_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
@@ -1935,13 +2059,13 @@
       async function clearRoomMessages(roomNum) {
         if (!isTeacherAuthenticated()) return;
         if (mode === "firebase-sdk" && fbDb) {
-          await fbDb.ref(`bm_app/rooms/room_${roomNum}`).update({
-            messages: null, blockedLogs: null, blockedCount: 0
-          });
+          await withTimeout(fbDb.ref(`bm_app/rooms/room_${roomNum}/messages`).remove(), 4500, "초기화 시간 초과");
+          await withTimeout(fbDb.ref(`bm_app/rooms/room_${roomNum}/blockedLogs`).remove(), 4500, "초기화 시간 초과");
+          await withTimeout(fbDb.ref(`bm_app/rooms/room_${roomNum}/blockedCount`).set(0), 4500, "초기화 시간 초과");
         } else if (mode === "firebase-rest") {
-          await restRequest(`/rooms/room_${roomNum}`, "PATCH", {
-            messages: null, blockedLogs: null, blockedCount: 0
-          });
+          await restRequest(`/rooms/room_${roomNum}/messages`, "DELETE");
+          await restRequest(`/rooms/room_${roomNum}/blockedLogs`, "DELETE");
+          await restRequest(`/rooms/room_${roomNum}/blockedCount`, "PUT", 0);
           await pollRestState();
         } else {
           writeDemoState(s => {
@@ -2053,7 +2177,7 @@
       }
 
       return {
-        init, getMode, getState, subscribe,
+        init, waitUntilReady, getIsInitializing, getMode, getState, subscribe,
         getActiveMembers, getSortedMessages, getBlockedLogs,
         joinMember, heartbeatMember, leaveMember,
         addMessage, logBlockedAttempt,
@@ -2126,7 +2250,8 @@
 
       const connEl = document.getElementById("entry-conn-status");
       const m = DataStore.getMode();
-      if (m === "firebase-sdk") connEl.textContent = "🟢 실시간 학급 서버 연결됨";
+      if (DataStore.getIsInitializing()) connEl.textContent = "🔄 학급 서버 연결 확인 중...";
+      else if (m === "firebase-sdk") connEl.textContent = "🟢 실시간 학급 서버 연결됨";
       else if (m === "firebase-rest") connEl.textContent = "🔵 실시간 학급 서버 연결됨 (학교 방화벽 호환 모드)";
       else connEl.textContent = "🟡 로컬 데모 모드 (같은 기기 테스트용)";
 
@@ -2393,8 +2518,12 @@
     /* =========================================================================
        9. 학생 입장 및 2단계 전송 전 차단 처리
        ========================================================================= */
+    let isEnteringRoom = false;
+
     async function enterStudentRoom() {
+      if (isEnteringRoom) return;
       const nameInput = document.getElementById("student-name-input");
+      const enterBtn = document.getElementById("btn-enter-room");
       const name = nameInput.value.trim().replace(/\s+/g, " ");
       if (name.length < 2) {
         showToast("학번과 이름을 2글자 이상 입력해 주세요. (예: 40501 김민준)");
@@ -2410,21 +2539,43 @@
         return;
       }
 
-      activeStudentRoom = roomNum;
-      activeStudentName = name;
-      SafeStorage.setLocal(STORAGE_KEYS.STUDENT_NAME, name);
+      isEnteringRoom = true;
+      enterBtn.disabled = true;
+      clearEl(enterBtn);
+      enterBtn.appendChild(createEl("span", { className: "spinner-inline" }));
+      enterBtn.appendChild(document.createTextNode("채팅방 입장 중..."));
 
-      await DataStore.joinMember(roomNum, getClientId(), name);
-      clearInterval(studentHeartbeatTimer);
-      studentHeartbeatTimer = setInterval(() => {
-        if (activeStudentRoom) {
-          DataStore.heartbeatMember(activeStudentRoom, getClientId(), activeStudentName);
+      try {
+        await DataStore.waitUntilReady();
+        await DataStore.joinMember(roomNum, getClientId(), name);
+
+        activeStudentRoom = roomNum;
+        activeStudentName = name;
+        SafeStorage.setLocal(STORAGE_KEYS.STUDENT_NAME, name);
+
+        clearInterval(studentHeartbeatTimer);
+        studentHeartbeatTimer = setInterval(() => {
+          if (activeStudentRoom) {
+            DataStore.heartbeatMember(activeStudentRoom, getClientId(), activeStudentName);
+          }
+        }, HEARTBEAT_INTERVAL_MS);
+
+        switchView("student");
+        renderStudentView(DataStore.getState());
+        document.getElementById("student-msg-input").focus();
+      } catch (err) {
+        const msg = String(err && err.message || err || "");
+        console.error("모둠 입장 실패:", err);
+        if (msg.includes("PERMISSION_DENIED") || msg.includes("401") || msg.includes("403")) {
+          showToast("Firebase 보안 규칙(Rules)에서 입장이 차단되었습니다. 규칙 시간과 [게시] 상태를 확인해 주세요.", 5000);
+        } else {
+          showToast("채팅방 입장 실패: " + msg, 4500);
         }
-      }, HEARTBEAT_INTERVAL_MS);
-
-      switchView("student");
-      renderStudentView(DataStore.getState());
-      document.getElementById("student-msg-input").focus();
+      } finally {
+        isEnteringRoom = false;
+        enterBtn.disabled = false;
+        enterBtn.textContent = "모둠 채팅방 입장하기";
+      }
     }
 
     async function leaveStudentRoom() {
@@ -2499,6 +2650,14 @@
           await DataStore.addMessage(activeStudentRoom, activeStudentName, rawText);
           inputEl.value = "";
           document.getElementById("student-char-counter").textContent = `0 / ${MAX_MSG_LENGTH}자`;
+        }
+      } catch (err) {
+        const msg = String(err && err.message || err || "");
+        console.error("메시지 전송 실패:", err);
+        if (msg.includes("PERMISSION_DENIED") || msg.includes("401") || msg.includes("403")) {
+          showToast("서버 보안 규칙(Rules)에서 전송이 차단되었습니다. 선생님께 문의해 주세요.", 4500);
+        } else {
+          showToast("메시지 전송에 실패했어요: " + msg, 4000);
         }
       } finally {
         isCheckingMessage = false;
