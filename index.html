@@ -678,3 +678,2211 @@
   </style>
 </head>
 <body>
+
+  <!-- 초기화·실행 오류 진단 배너 (빈 화면 방지 안전장치) -->
+  <div id="fatal-error-banner" class="fatal-error-banner hidden" role="alert">
+    <div>
+      <strong>실행 중 오류가 감지되었습니다</strong>
+      <span id="fatal-error-text"></span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button id="btn-reset-app-storage" class="btn-danger btn-xs">저장 데이터 초기화 후 새로고침</button>
+      <button id="btn-dismiss-error" class="btn-secondary btn-xs">닫기</button>
+    </div>
+  </div>
+
+  <!-- 최우선 오류 감지기 (메인 스크립트 파싱 실패·런타임 예외 포착) -->
+  <script>
+    (function () {
+      function displayError(msg) {
+        var banner = document.getElementById("fatal-error-banner");
+        var textEl = document.getElementById("fatal-error-text");
+        if (banner && textEl) {
+          textEl.textContent = String(msg || "알 수 없는 오류");
+          banner.classList.remove("hidden");
+        }
+        var entry = document.getElementById("view-entry");
+        if (entry) entry.classList.remove("hidden");
+      }
+      window.__showAppFatalError = displayError;
+      window.addEventListener("error", function (ev) {
+        var loc = ev.lineno ? " (줄 " + ev.lineno + ")" : "";
+        displayError((ev.message || "스크립트 오류") + loc);
+      });
+      window.addEventListener("unhandledrejection", function (ev) {
+        var reason = ev.reason;
+        displayError(reason && reason.message ? reason.message : String(reason));
+      });
+      var resetBtn = document.getElementById("btn-reset-app-storage");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", function () {
+          try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+          window.location.reload();
+        });
+      }
+      var closeBtn = document.getElementById("btn-dismiss-error");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+          document.getElementById("fatal-error-banner").classList.add("hidden");
+        });
+      }
+    })();
+  </script>
+
+  <!-- ==================== VIEW 1: 대기실 / 모둠 입장 (기본 표시) ==================== -->
+  <div id="view-entry" class="entry-wrapper">
+    <div class="entry-card">
+      <div class="entry-header">
+        <span class="entry-badge">초등학교 4학년 국어 · 온라인 대화 예절 실습</span>
+        <h1 id="entry-title">바른말 고운말 모둠 채팅방</h1>
+        <p id="entry-subtitle">내 모둠을 확인하고 학번과 이름을 입력한 뒤 입장해 주세요.</p>
+      </div>
+
+      <div class="topic-preview-box">
+        <div class="topic-preview-label">오늘의 대화 주제</div>
+        <div id="entry-topic-text" class="topic-preview-text">우리 반 모두가 행복해지는 온라인 대화 약속 정하기</div>
+      </div>
+
+      <div id="entry-room-selector-wrap">
+        <div class="form-group">
+          <label>1. 우리 모둠 선택하기 (모둠당 최대 4명)</label>
+          <div id="entry-room-grid" class="room-grid-select"></div>
+        </div>
+      </div>
+
+      <div id="entry-fixed-room-banner" class="hidden" style="background:#dbeafe;border:2px solid #60a5fa;border-radius:12px;padding:14px;margin-bottom:18px;text-align:center;">
+        <div style="font-size:13px;color:#1e40af;font-weight:700;">지정된 모둠 링크로 접속했어요</div>
+        <div id="entry-fixed-room-label" style="font-size:22px;font-weight:800;color:#1e3a8a;margin-top:4px;"></div>
+        <div id="entry-fixed-room-count" style="font-size:13px;color:#1d4ed8;margin-top:4px;"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="student-name-input">2. 학번과 이름 입력하기 (예: 40501 김민준)</label>
+        <input type="text" id="student-name-input" maxlength="20" placeholder="예: 40501 김민준" autocomplete="off" />
+      </div>
+
+      <button id="btn-enter-room" class="btn-primary" style="width:100%;padding:14px;font-size:17px;border-radius:12px;">
+        모둠 채팅방 입장하기
+      </button>
+
+      <div class="rules-mini-box">
+        <div class="rules-mini-title">우리 반 바른말 약속 — 아래 6가지는 전송할 수 없어요!</div>
+        <div class="rules-tags">
+          <span class="rule-tag">1. 예절에 어긋난 말</span>
+          <span class="rule-tag">2. 맞춤법에 틀린 말</span>
+          <span class="rule-tag">3. 이모티콘 (ㅋㅋ, ^^, 그림)</span>
+          <span class="rule-tag">4. 줄임말 (ㅇㅈ, 강추 등)</span>
+          <span class="rule-tag">5. 비속어</span>
+          <span class="rule-tag">6. 신조어 (어쩔티비 등)</span>
+        </div>
+      </div>
+
+      <div class="entry-footer-links">
+        <span id="entry-conn-status">시스템 준비 중...</span>
+        <div style="display:flex;gap:8px;">
+          <button id="btn-open-student-db-modal" class="btn-secondary btn-xs">학급 서버 연결</button>
+          <button id="btn-go-teacher" class="btn-secondary btn-xs">교사 대시보드 이동</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW 2: 학생용 모둠 채팅방 ==================== -->
+  <div id="view-student" class="student-chat-layout hidden">
+    <header class="chat-top-header">
+      <div class="chat-room-info">
+        <span id="student-room-pill" class="chat-room-pill">1모둠</span>
+        <div class="chat-user-meta">
+          <div id="student-my-name" style="font-weight:700;font-size:16px;"></div>
+          <div id="student-filter-badge" style="font-size:12px;opacity:0.9;">바른말 지킴이 작동 중</div>
+        </div>
+      </div>
+      <div class="chat-header-right">
+        <span id="student-count-chip" class="status-chip">1/4명 접속 중</span>
+        <button id="btn-leave-room" class="btn-secondary btn-xs" style="background:rgba(255,255,255,0.2);color:#fff;">나가기</button>
+      </div>
+    </header>
+
+    <div class="topic-banner">
+      <span class="topic-banner-tag">대화 주제</span>
+      <span id="student-topic-text" class="topic-banner-content">우리 반 모두가 행복해지는 온라인 대화 약속 정하기</span>
+    </div>
+
+    <div id="student-notice-banner" class="notice-banner hidden">
+      <span>📢 선생님 말씀:</span>
+      <span id="student-notice-text"></span>
+    </div>
+
+    <div class="members-bar">
+      <span style="font-weight:700;">함께 이야기하는 친구들:</span>
+      <div id="student-members-list" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <main id="student-chat-messages" class="chat-messages-area"></main>
+
+    <div id="student-lock-banner" class="lock-banner hidden">
+      잠시 선생님 말씀을 들을 시간이에요! 선생님이 잠금을 풀어 줄 때까지 기다려 주세요.
+    </div>
+
+    <div class="chat-input-bar">
+      <div class="chat-input-row">
+        <input type="text" id="student-msg-input" maxlength="150" placeholder="친구를 존중하며 바른 맞춤법으로 생각을 적어 보세요." autocomplete="off" />
+        <button id="btn-send-msg" class="chat-send-btn">보내기</button>
+      </div>
+      <div class="chat-input-meta">
+        <span>이모티콘, 줄임말, 신조어, 비속어, 맞춤법 오류는 자동으로 안내해 드려요.</span>
+        <span id="student-char-counter">0 / 150자</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW 3: 교사 인증 화면 ==================== -->
+  <div id="view-teacher-auth" class="teacher-auth-wrapper hidden">
+    <div class="entry-card">
+      <div class="entry-header">
+        <span class="entry-badge">교사 전용 관리 시스템</span>
+        <h1 style="font-size:24px;">교사 대시보드 로그인</h1>
+        <p>관리자 비밀번호를 입력해 주세요. (초기 기본값: 1234)</p>
+      </div>
+      <div class="form-group">
+        <label for="teacher-pw-input">관리자 비밀번호</label>
+        <input type="password" id="teacher-pw-input" placeholder="비밀번호 입력" autocomplete="current-password" />
+      </div>
+      <button id="btn-teacher-login" class="btn-primary" style="width:100%;padding:13px;">대시보드 접속</button>
+      <div style="text-align:center;margin-top:16px;">
+        <button id="btn-back-to-lobby" class="btn-secondary btn-xs">학생 대기실로 돌아가기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW 4: 교사 통합 대시보드 ==================== -->
+  <div id="view-teacher" class="hidden">
+    <header class="teacher-header">
+      <div class="teacher-title-area">
+        <h1>바른말 온라인 대화 교사 통합 대시보드 (1~6모둠)</h1>
+        <div class="teacher-badges">
+          <span id="teacher-conn-pill" class="sys-pill demo">로컬 데모 모드</span>
+          <span id="teacher-ai-pill" class="sys-pill ai-off">1차 규칙 필터만 활성 (Gemini 키 미설정)</span>
+        </div>
+      </div>
+      <div class="teacher-header-actions">
+        <button id="btn-export-all-csv" class="btn-success btn-xs" style="padding:8px 12px;">전체 6모둠 CSV 저장</button>
+        <button id="btn-export-all-txt" class="btn-success btn-xs" style="padding:8px 12px;">전체 6모둠 TXT 저장</button>
+        <button id="btn-open-settings" class="btn-primary btn-xs" style="padding:8px 12px;">환경 설정 (Firebase / AI)</button>
+        <button id="btn-teacher-logout" class="btn-secondary btn-xs" style="padding:8px 12px;">로그아웃</button>
+      </div>
+    </header>
+
+    <section class="teacher-toolbar">
+      <div class="toolbar-block">
+        <label for="teacher-topic-input">전체 모둠 대화 주제 (실시간 반영)</label>
+        <div class="inline-input-group">
+          <input type="text" id="teacher-topic-input" maxlength="100" value="우리 반 모두가 행복해지는 온라인 대화 약속 정하기" />
+          <button id="btn-save-topic" class="btn-primary" style="white-space:nowrap;">주제 반영</button>
+        </div>
+      </div>
+
+      <div class="toolbar-block">
+        <label for="teacher-global-notice-input">전체 모둠 실시간 공지 배너</label>
+        <div class="inline-input-group">
+          <input type="text" id="teacher-global-notice-input" maxlength="120" placeholder="전체 모둠에 띄울 공지 입력 (예: 3분 뒤에 모둠 약속을 정리해요!)" />
+          <button id="btn-send-global-notice" class="btn-warning" style="white-space:nowrap;">공지 띄우기</button>
+          <button id="btn-clear-global-notice" class="btn-secondary" style="white-space:nowrap;">내리기</button>
+        </div>
+      </div>
+
+      <div class="toolbar-global-btns">
+        <button id="btn-lock-all" class="btn-danger">전체 잠금</button>
+        <button id="btn-unlock-all" class="btn-secondary">전체 해제</button>
+      </div>
+    </section>
+
+    <main id="teacher-rooms-grid" class="dashboard-grid"></main>
+  </div>
+
+  <!-- ==================== MODAL 1: 학생 바른말 교정 안내 ==================== -->
+  <div id="modal-correction" class="modal-backdrop hidden">
+    <div class="modal-box correction-box">
+      <div class="modal-head">
+        <h2>잠깐만요! 바른 말로 고쳐 볼까요?</h2>
+        <button id="btn-close-correction" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:#991b1b;margin-bottom:6px;">전송되지 않은 이유 (해당 항목)</div>
+      <div id="correction-cats" class="correction-cats"></div>
+
+      <div class="correction-original">
+        <strong>내가 쓴 말:</strong> <span id="correction-original-text"></span>
+      </div>
+
+      <div id="correction-explain-text" class="correction-explain"></div>
+
+      <div class="correction-suggestion-card">
+        <div class="correction-suggestion-label">이렇게 바르게 고쳐 써 볼까요?</div>
+        <div id="correction-suggestion-text" class="correction-suggestion-text"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btn-correction-manual" class="btn-secondary">직접 다시 쓸게요</button>
+        <button id="btn-correction-apply" class="btn-success">추천 문장으로 고쳐 쓰기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2: 교사 환경 설정 ==================== -->
+  <div id="modal-settings" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>환경 설정 (실시간 동기화 · AI · 보안)</h2>
+        <button id="btn-close-settings" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>1. Firebase Realtime Database 연동 (다기기 실시간 동기화)</h3>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="cfg-firebase-url" style="font-size:13px;">Firebase Realtime Database URL</label>
+          <input type="url" id="cfg-firebase-url" placeholder="https://프로젝트ID-default-rtdb.asia-southeast1.firebasedatabase.app" />
+          <div class="help-text">
+            • 비워 두면 같은 브라우저의 여러 탭에서 테스트할 수 있는 <strong>로컬 데모 모드</strong>로 동작합니다.<br />
+            • 학교 방화벽에서 Firebase SDK CDN이 차단되어도 자동으로 <strong>REST 실시간 폴링 모드</strong>로 전환되어 정상 작동합니다.
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>2. Google Gemini AI 언어·맞춤법 정밀 검사 (교사 PC 중계 방식)</h3>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="cfg-gemini-key" style="font-size:13px;">Gemini API 키 (교사 PC에만 안전 저장)</label>
+          <input type="password" id="cfg-gemini-key" placeholder="AIza..." autocomplete="off" />
+        </div>
+        <div class="form-group" style="margin-bottom:6px;">
+          <label for="cfg-gemini-model" style="font-size:13px;">사용할 Gemini 모델</label>
+          <select id="cfg-gemini-model">
+            <option value="gemini-2.5-flash">gemini-2.5-flash (권장 · 빠르고 정확)</option>
+            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (초고속 경량)</option>
+            <option value="gemini-2.0-flash">gemini-2.0-flash (안정형)</option>
+          </select>
+          <div class="help-text">
+            • API 키는 학생 기기나 공유 링크에 절대 노출되지 않으며, 교사 대시보드가 열려 있는 동안 학생 메시지를 중계 검사합니다.<br />
+            • 키 미입력 또는 네트워크 지연 시에도 클라이언트 1차 규칙 방어막이 6대 금지 표현을 즉시 차단합니다.
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>3. 교사 관리자 비밀번호 변경</h3>
+        <div class="form-group" style="margin-bottom:6px;">
+          <label for="cfg-new-pw" style="font-size:13px;">새 비밀번호 (변경할 때만 입력, 4자 이상)</label>
+          <input type="password" id="cfg-new-pw" placeholder="변경하지 않으려면 비워 두세요" autocomplete="new-password" />
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btn-reset-demo-mode" class="btn-secondary">데모 모드로 전환</button>
+        <button id="btn-save-settings" class="btn-primary">설정 저장 및 적용</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 3: 모둠 QR코드 & 접속 링크 ==================== -->
+  <div id="modal-qr" class="modal-backdrop hidden">
+    <div class="modal-box" style="max-width:460px;">
+      <div class="modal-head">
+        <h2 id="qr-modal-title">1모둠 접속 안내</h2>
+        <button id="btn-close-qr" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+      <div class="qr-container">
+        <div id="qr-canvas-box" class="qr-canvas-box">QR코드 준비 중...</div>
+        <div id="qr-url-display" class="url-copy-box"></div>
+        <div class="help-text" style="text-align:center;">
+          학생 태블릿·크롬북으로 QR코드를 스캔하거나 주소를 복사해 전달하세요.<br />
+          (보안을 위해 Gemini API 키는 링크에 포함되지 않습니다.)
+        </div>
+        <button id="btn-copy-qr-url" class="btn-primary" style="width:100%;">접속 링크 복사하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: 모둠 차단 기록 확인 ==================== -->
+  <div id="modal-blocked-logs" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="blocked-modal-title">1모둠 바른말 교정(차단) 기록</h2>
+        <button id="btn-close-blocked" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+      <div id="blocked-logs-list" style="max-height:55vh;overflow-y:auto;"></div>
+      <div class="modal-actions" style="margin-top:14px;">
+        <button id="btn-ok-blocked" class="btn-primary">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 5: 학생 수동 서버 연결 ==================== -->
+  <div id="modal-student-db" class="modal-backdrop hidden">
+    <div class="modal-box" style="max-width:460px;">
+      <div class="modal-head">
+        <h2>학급 실시간 서버 연결</h2>
+        <button id="btn-close-student-db" class="modal-close-btn" aria-label="닫기">✕</button>
+      </div>
+      <div class="form-group">
+        <label for="student-db-url-input">선생님이 안내한 Firebase Database URL</label>
+        <input type="url" id="student-db-url-input" placeholder="https://프로젝트ID-default-rtdb.asia-southeast1.firebasedatabase.app" />
+        <div class="help-text">선생님이 나눠 준 QR코드나 모둠 링크로 접속하면 자동으로 연결되므로 평소에는 입력하지 않아도 됩니다.</div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-clear-student-db" class="btn-secondary">연결 해제(데모)</button>
+        <button id="btn-save-student-db" class="btn-primary">연결하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast-banner hidden"></div>
+
+  <script>
+    "use strict";
+
+    /* =========================================================================
+       1. 상수 및 안전한 저장소 래퍼 (브라우저 보안 제한 환경 대응)
+       ========================================================================= */
+    const ROOM_COUNT = 6;
+    const MAX_MEMBERS_PER_ROOM = 4;
+    const MAX_MSG_LENGTH = 150;
+    const SEND_COOLDOWN_MS = 2000;
+    const MEMBER_TIMEOUT_MS = 35000;
+    const HEARTBEAT_INTERVAL_MS = 10000;
+    const REST_POLL_INTERVAL_MS = 2500;
+    const DEFAULT_TOPIC = "우리 반 모두가 행복해지는 온라인 대화 약속 정하기";
+    const ROOM_COLORS = ["#2563eb", "#059669", "#d97706", "#7c3aed", "#db2777", "#0891b2"];
+
+    const STORAGE_KEYS = {
+      FIREBASE_URL: "bm_chat_firebase_url_v1",
+      GEMINI_KEY: "bm_chat_teacher_gemini_key_v1",
+      GEMINI_MODEL: "bm_chat_teacher_gemini_model_v1",
+      TEACHER_PW_HASH: "bm_chat_teacher_pw_hash_v1",
+      DEMO_DB: "bm_chat_demo_db_v1",
+      STUDENT_NAME: "bm_chat_student_name_v1"
+    };
+
+    const SESSION_KEYS = {
+      TEACHER_AUTH: "bm_chat_teacher_authed_v1",
+      CLIENT_ID: "bm_chat_client_id_v1"
+    };
+
+    const memLocal = new Map();
+    const memSession = new Map();
+
+    const SafeStorage = {
+      getLocal(k) {
+        try { return window.localStorage.getItem(k); } catch { return memLocal.get(k) ?? null; }
+      },
+      setLocal(k, v) {
+        try { window.localStorage.setItem(k, v); } catch { memLocal.set(k, String(v)); }
+      },
+      removeLocal(k) {
+        try { window.localStorage.removeItem(k); } catch { memLocal.delete(k); }
+      },
+      getSession(k) {
+        try { return window.sessionStorage.getItem(k); } catch { return memSession.get(k) ?? null; }
+      },
+      setSession(k, v) {
+        try { window.sessionStorage.setItem(k, v); } catch { memSession.set(k, String(v)); }
+      },
+      removeSession(k) {
+        try { window.sessionStorage.removeItem(k); } catch { memSession.delete(k); }
+      }
+    };
+
+    /* =========================================================================
+       2. 비동기 외부 스크립트 로더 (학교 네트워크 CDN 차단 시 타임아웃 폴백)
+       ========================================================================= */
+    const loadedScriptPromises = new Map();
+
+    function loadScriptWithTimeout(url, timeoutMs = 4000) {
+      if (loadedScriptPromises.has(url)) return loadedScriptPromises.get(url);
+      const promise = new Promise((resolve) => {
+        const script = document.createElement("script");
+        let settled = false;
+        const finish = (ok) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (!ok && script.parentNode) script.parentNode.removeChild(script);
+          resolve(ok);
+        };
+        const timer = setTimeout(() => finish(false), timeoutMs);
+        script.src = url;
+        script.async = true;
+        script.onload = () => finish(true);
+        script.onerror = () => finish(false);
+        document.head.appendChild(script);
+      });
+      loadedScriptPromises.set(url, promise);
+      return promise;
+    }
+
+    async function tryLoadFirebaseSdk() {
+      if (typeof window.firebase !== "undefined" && typeof window.firebase.database === "function") {
+        return true;
+      }
+      const appOk = await loadScriptWithTimeout("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js", 3800);
+      if (!appOk) return false;
+      const dbOk = await loadScriptWithTimeout("https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js", 3800);
+      return dbOk && typeof window.firebase !== "undefined" && typeof window.firebase.database === "function";
+    }
+
+    async function tryLoadQrLibrary() {
+      if (typeof window.QRCode !== "undefined") return true;
+      const urls = [
+        "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js",
+        "https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"
+      ];
+      for (const u of urls) {
+        const ok = await loadScriptWithTimeout(u, 3000);
+        if (ok && typeof window.QRCode !== "undefined") return true;
+      }
+      return false;
+    }
+
+    /* =========================================================================
+       3. 유틸리티 함수 (XSS 차단, 해시, 시간, CSV 수식 주입 방어)
+       ========================================================================= */
+    function getClientId() {
+      let id = SafeStorage.getSession(SESSION_KEYS.CLIENT_ID);
+      if (!id) {
+        id = "c_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+        SafeStorage.setSession(SESSION_KEYS.CLIENT_ID, id);
+      }
+      return id;
+    }
+
+    function createEl(tag, options = {}) {
+      const el = document.createElement(tag);
+      if (options.className) el.className = options.className;
+      if (options.text !== undefined) el.textContent = options.text;
+      if (options.attrs) {
+        for (const [k, v] of Object.entries(options.attrs)) {
+          el.setAttribute(k, v);
+        }
+      }
+      return el;
+    }
+
+    function clearEl(el) {
+      while (el.firstChild) el.removeChild(el.firstChild);
+    }
+
+    function showToast(msg, duration = 2600) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.remove("hidden");
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => toast.classList.add("hidden"), duration);
+    }
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const ss = String(d.getSeconds()).padStart(2, "0");
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function formatShortTime(ts) {
+      const d = new Date(ts);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+
+    function formatDateStamp() {
+      const d = new Date();
+      return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+    }
+
+    async function hashPassword(plain) {
+      const salted = "bareunmal_edu_salt_2026::" + plain;
+      try {
+        if (window.crypto && window.crypto.subtle) {
+          const buf = new TextEncoder().encode(salted);
+          const digest = await crypto.subtle.digest("SHA-256", buf);
+          return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+        }
+      } catch {
+        // 비보안 컨텍스트(file:// 등) 폴백
+      }
+      let h = 2166136261;
+      for (let i = 0; i < salted.length; i++) {
+        h ^= salted.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return "fnv_" + (h >>> 0).toString(16);
+    }
+
+    function normalizeFirebaseUrl(url) {
+      return String(url || "").trim().replace(/\/+$/, "");
+    }
+
+    function isValidFirebaseUrl(url) {
+      const clean = normalizeFirebaseUrl(url);
+      if (!clean) return false;
+      try {
+        const u = new URL(clean);
+        return u.protocol === "https:" && (
+          u.hostname.endsWith(".firebaseio.com") ||
+          u.hostname.endsWith(".firebasedatabase.app")
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    function safeCsvCell(value) {
+      let str = String(value ?? "");
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    function downloadFile(filename, content, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /* =========================================================================
+       4. 1단계 클라이언트 언어·맞춤법 필터링 엔진 (6대 금지 기준, 구형 브라우저 호환)
+       ========================================================================= */
+    const RULE_ENGINE = (() => {
+      const ETIQUETTE_RULES = [
+        { re: /(?:^|\s)야(?=\s|,|!|\.|너|$)/g, label: "야", explain: "친구를 '야'라고 부르는 것은 존중하지 않는 말투예요." },
+        { re: /야\s*너/g, label: "야 너", explain: "'야 너' 대신 친구의 이름을 다정하게 불러 주세요." },
+        { re: /너\s*때문/g, label: "너 때문", explain: "상대방을 탓하는 말보다 함께 해결할 방법을 이야기해요." },
+        { re: /(?:네|니)가\s*뭔데/g, label: "네가 뭔데", explain: "친구의 의견을 무시하는 표현은 상처를 줄 수 있어요." },
+        { re: /조용히\s*해|입\s*다물|시끄러|시끄럽/g, label: "명령·무시 표현", explain: "명령하는 말투 대신 부드럽게 부탁하는 표현을 써요." },
+        { re: /어쩌라고|그래서\s*어쩌라고/g, label: "어쩌라고", explain: "상대방의 말을 퉁명스럽게 끊는 표현은 예절에 어긋나요." },
+        { re: /너나\s*잘\s*해|신경\s*꺼|알아서\s*해|관심\s*없어|끼지\s*마|나가라|저리\s*가/g, label: "배척·무례한 말", explain: "친구의 마음을 상하게 하는 차가운 표현이에요." },
+        { re: /웃기고\s*있네|한심하|재수\s*없/g, label: "조롱·비난 표현", explain: "친구를 비웃거나 비난하는 말은 사용할 수 없어요." }
+      ];
+
+      const SPELLING_RULES = [
+        { re: /안되요/g, wrong: "안되요", right: "안 돼요", explain: "'안 되어요'의 준말이므로 '안 돼요'로 적어야 해요." },
+        { re: /않돼요|않되요/g, wrong: "않되요", right: "안 돼요", explain: "부정 부사 '안'과 '돼요(되어요)'를 써서 '안 돼요'로 적어요." },
+        { re: /않돼|않되/g, wrong: "않돼", right: "안 돼", explain: "'안 돼'가 바른 표기예요." },
+        { re: /(^|[^안])되요/g, wrong: "되요", right: "$1돼요", explain: "'되어요'의 준말은 '돼요'로 적어야 해요." },
+        { re: /되서/g, wrong: "되서", right: "돼서", explain: "'되어서'의 준말은 '돼서'로 적어야 해요." },
+        { re: /됬/g, wrong: "됬", right: "됐", explain: "'되었'의 준말은 '됐'으로 적어야 해요." },
+        { re: /몇일/g, wrong: "몇일", right: "며칠", explain: "날짜나 기간을 나타낼 때는 항상 '며칠'로 적어요." },
+        { re: /어떻해/g, wrong: "어떻해", right: "어떡해", explain: "'어떻게 해'의 준말은 '어떡해'가 맞아요." },
+        { re: /어떡게/g, wrong: "어떡게", right: "어떻게", explain: "'어떠하게'의 준말은 '어떻게'로 적어야 해요." },
+        { re: /설레임/g, wrong: "설레임", right: "설렘", explain: "기본형이 '설레다'이므로 '설렘'이 바른 표기예요." },
+        { re: /금새/g, wrong: "금새", right: "금세", explain: "'금시에'의 준말이므로 '금세'로 적어요." },
+        { re: /어의\s*없|어의가\s*없/g, wrong: "어의없다", right: "어이없다", explain: "'어이없다'가 바른 표준어예요." },
+        { re: /오랫만/g, wrong: "오랫만", right: "오랜만", explain: "'오래간만'의 준말은 '오랜만'이에요." },
+        { re: /일찍히/g, wrong: "일찍히", right: "일찍이", explain: "'일찍이'가 바른 표기예요." },
+        { re: /역활/g, wrong: "역활", right: "역할", explain: "'역할'이 바른 표기예요." },
+        { re: /마춤법/g, wrong: "마춤법", right: "맞춤법", explain: "'맞춤법'으로 적어야 해요." },
+        { re: /고운말/g, wrong: "고운말", right: "고운 말", explain: "'고운'과 '말'은 띄어서 '고운 말'로 적어야 해요." },
+        { re: /할수있/g, wrong: "할수있", right: "할 수 있", explain: "의존 명사 '수'는 앞말과 띄어 '할 수 있'으로 적어요." },
+        { re: /할수없/g, wrong: "할수없", right: "할 수 없", explain: "의존 명사 '수'는 앞말과 띄어 '할 수 없'으로 적어요." },
+        { re: /할께요/g, wrong: "할께요", right: "할게요", explain: "의지를 나타내는 어미는 '할게요'로 적어요." },
+        { re: /갈께요/g, wrong: "갈께요", right: "갈게요", explain: "'갈게요'가 바른 맞춤법이에요." },
+        { re: /할께(?!요)/g, wrong: "할께", right: "할게", explain: "'할게'가 바른 맞춤법이에요." },
+        { re: /갈께(?!요)/g, wrong: "갈께", right: "갈게", explain: "'갈게'가 바른 맞춤법이에요." },
+        { re: /볼께/g, wrong: "볼께", right: "볼게", explain: "'볼게'가 바른 맞춤법이에요." },
+        { re: /줄께/g, wrong: "줄께", right: "줄게", explain: "'줄게'가 바른 맞춤법이에요." },
+        { re: /왠일/g, wrong: "왠일", right: "웬일", explain: "'어찌 된 일'은 '웬일'로 적어야 해요." },
+        { re: /웬지/g, wrong: "웬지", right: "왠지", explain: "'왜인지'의 준말은 '왠지'예요." },
+        { re: /있자나요|있잔아요/g, wrong: "있자나요", right: "있잖아요", explain: "'있잖아요'로 적어야 해요." },
+        { re: /햇어/g, wrong: "햇어", right: "했어", explain: "과거를 나타낼 때는 쌍시옷 받침 '했어'로 적어요." },
+        { re: /갓어/g, wrong: "갓어", right: "갔어", explain: "'갔어'로 적어야 바른 표기예요." },
+        { re: /왓어/g, wrong: "왓어", right: "왔어", explain: "'왔어'로 적어야 바른 표기예요." },
+        { re: /봣어/g, wrong: "봣어", right: "봤어", explain: "'봤어'로 적어야 바른 표기예요." },
+        { re: /먹엇/g, wrong: "먹엇", right: "먹었", explain: "'먹었~'으로 쌍시옷 받침을 써야 해요." },
+        { re: /좋앗/g, wrong: "좋앗", right: "좋았", explain: "'좋았~'으로 쌍시옷 받침을 써야 해요." },
+        { re: /하셧/g, wrong: "하셧", right: "하셨", explain: "'하셨~'으로 적어야 바른 표기예요." }
+      ];
+
+      const CHOSUNG_ABBR = {
+        "ㅇㅈ": "인정해", "ㄱㅅ": "고마워", "ㅂㅂ": "안녕", "ㅎㅇ": "안녕",
+        "ㅊㅋ": "축하해", "ㅈㅅ": "미안해", "ㄴㄴ": "아니야", "ㅇㅋ": "알겠어",
+        "ㄹㅇ": "정말", "ㄱㅊ": "괜찮아", "ㅁㄹ": "몰라", "ㅇㄷ": "어디",
+        "ㅅㄱ": "수고했어", "ㄱㄱ": "시작하자", "ㅇㅎ": "아하"
+      };
+
+      const WORD_ABBR_RULES = [
+        { word: "별다줄", right: "별걸 다 줄이는 말" },
+        { word: "강추", right: "강력히 추천" },
+        { word: "비추", right: "추천하지 않음" },
+        { word: "존맛", right: "정말 맛있음" },
+        { word: "노잼", right: "재미없음" },
+        { word: "꿀잼", right: "아주 재미있음" },
+        { word: "핵잼", right: "매우 재미있음" },
+        { word: "갑분싸", right: "갑자기 분위기가 어색해짐" },
+        { word: "만반잘부", right: "만나서 반가워, 잘 부탁해" },
+        { word: "점메추", right: "점심 메뉴 추천" },
+        { word: "저메추", right: "저녁 메뉴 추천" },
+        { word: "얼죽아", right: "차가운 음료" },
+        { word: "꾸안꾸", right: "자연스럽게 꾸민 모습" },
+        { word: "스불재", right: "스스로 불러온 일" },
+        { word: "인싸", right: "친구들과 잘 어울리는 사람" },
+        { word: "아싸", right: "혼자 지내는 사람" },
+        { word: "킹정", right: "정말 인정" },
+        { word: "존버", right: "끝까지 버티기" },
+        { word: "톡방", right: "대화방" },
+        { word: "반모", right: "반말하기" },
+        { word: "좋댓구알", right: "좋아요와 댓글" }
+      ];
+
+      const PROFANITY_WORDS = [
+        "시발", "씨발", "시팔", "씨팔", "ㅅㅂ", "ㅆㅂ", "병신", "ㅂㅅ",
+        "지랄", "ㅈㄹ", "개새끼", "새끼", "썅", "존나", "ㅈㄴ", "졸라",
+        "닥쳐", "꺼져", "뒤져", "뒈져", "죽어", "미친", "미쳤", "또라이",
+        "돌아이", "쓰레기", "바보", "멍청이", "등신", "호구", "찌질",
+        "엿먹", "니미", "느금", "애미", "애비", "씹", "좆", "좇",
+        "개같", "개짜증", "개소리", "헛소리", "쳐먹", "쳐맞", "대가리",
+        "주둥이", "아가리", "디질"
+      ];
+
+      const NEOLOGISM_WORDS = [
+        "어쩔티비", "저쩔티비", "어쩔", "저쩔", "뇌절", "억까", "억빠",
+        "킹받", "갓생", "폼미쳤", "폼 미쳤", "중꺾마", "알잘딱깔센",
+        "오히려좋아", "현타", "손절", "급발진", "무지성", "개이득",
+        "개꿀", "개노잼", "핵노잼", "실화냐", "레게노", "스껄",
+        "잼민이", "틀딱", "찐따", "관종", "어그로", "티엠아이", "TMI",
+        "JMT", "지리네", "지린다", "오지네", "오진다", "쩔어", "쩐다",
+        "에바야", "에바참치", "에바"
+      ];
+
+      // 구형 크롬/웹뷰 호환을 위해 동적 생성 + 폴백 적용
+      let EMOJI_RE;
+      try {
+        EMOJI_RE = new RegExp("[\\p{Extended_Pictographic}\\u{1F300}-\\u{1FAFF}\\u{2600}-\\u{27BF}\\u2661\\u2665\\u2605\\u2606\\u266A\\u266B]", "gu");
+      } catch {
+        EMOJI_RE = /([\uD83C-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF])/g;
+      }
+
+      const TEXT_EMO_RE = /(\^\^|\^_\^|\^0\^|\^o\^|T_T|T\.T|ToT|;\s*ㅅ\s*;|>_<|><|O_O|o_o|-_-|=_=|:\)|:\(|:D|;\)|<3|\*_\*)/g;
+      const JAMO_SEQ_RE = /[ㄱ-ㅎㅏ-ㅣ]+/g;
+
+      function analyze(rawText) {
+        const text = rawText.trim();
+        const categories = new Set();
+        const details = [];
+        let suggested = text;
+
+        // A. 비속어
+        for (const w of PROFANITY_WORDS) {
+          if (text.includes(w)) {
+            categories.add("비속어");
+            details.push(`거칠고 상처를 주는 비속어('${w}')는 절대 사용할 수 없어요.`);
+            suggested = suggested.split(w).join("");
+          }
+        }
+
+        // B. 신조어
+        for (const w of NEOLOGISM_WORDS) {
+          if (text.toUpperCase().includes(w.toUpperCase())) {
+            categories.add("신조어");
+            details.push(`국어사전에 없는 인터넷 신조어('${w}') 대신 모두가 알기 쉬운 표준어를 써요.`);
+            suggested = suggested.replace(new RegExp(w, "gi"), "");
+          }
+        }
+
+        // C. 줄임말 (초성체 + 단어 줄임말)
+        const jamoMatches = text.match(JAMO_SEQ_RE) || [];
+        const nonAbbrJamos = [];
+        for (const jm of jamoMatches) {
+          if (CHOSUNG_ABBR[jm]) {
+            categories.add("줄임말");
+            details.push(`초성 줄임말('${jm}') 대신 '${CHOSUNG_ABBR[jm]}'처럼 온전한 낱말로 써요.`);
+            suggested = suggested.replace(jm, CHOSUNG_ABBR[jm]);
+          } else if (!PROFANITY_WORDS.includes(jm)) {
+            nonAbbrJamos.push(jm);
+          }
+        }
+
+        for (const item of WORD_ABBR_RULES) {
+          if (text.includes(item.word)) {
+            categories.add("줄임말");
+            details.push(`줄임말('${item.word}') 대신 '${item.right}'처럼 풀어 써 주세요.`);
+            suggested = suggested.split(item.word).join(item.right);
+          }
+        }
+
+        // D. 이모티콘
+        const emojiHits = text.match(EMOJI_RE) || [];
+        const textEmoHits = text.match(TEXT_EMO_RE) || [];
+        if (emojiHits.length > 0 || textEmoHits.length > 0 || nonAbbrJamos.length > 0) {
+          categories.add("이모티콘");
+          const allEmos = [...new Set([...emojiHits, ...textEmoHits, ...nonAbbrJamos])];
+          details.push(`이모티콘이나 자음·모음 표현('${allEmos.slice(0, 3).join("', '")}') 대신 바른 글자로 마음을 전해 보세요.`);
+          suggested = suggested.replace(EMOJI_RE, "").replace(TEXT_EMO_RE, "");
+          for (const nj of nonAbbrJamos) {
+            suggested = suggested.split(nj).join("");
+          }
+        }
+
+        // E. 예절 위반
+        for (const rule of ETIQUETTE_RULES) {
+          if (rule.re.test(text)) {
+            categories.add("예절에 어긋난 말");
+            details.push(rule.explain);
+          }
+          rule.re.lastIndex = 0;
+        }
+
+        // F. 맞춤법 오류
+        for (const rule of SPELLING_RULES) {
+          if (rule.re.test(text)) {
+            rule.re.lastIndex = 0;
+            categories.add("맞춤법에 틀린 말");
+            details.push(rule.explain);
+            suggested = suggested.replace(rule.re, rule.right);
+          }
+          rule.re.lastIndex = 0;
+        }
+
+        suggested = suggested.replace(/\s{2,}/g, " ").trim();
+        if (categories.has("예절에 어긋난 말") || categories.has("비속어") || suggested.length < 2) {
+          suggested = "친구야, 내 생각은 이래. 너의 의견도 들려줄래?";
+        } else if (categories.has("신조어") && suggested === text) {
+          suggested = "우리 모두 이해할 수 있는 바른 표준어로 이야기해요.";
+        }
+
+        const catList = Array.from(categories);
+        return {
+          allowed: catList.length === 0,
+          categories: catList,
+          explanation: details.length > 0 ? details.slice(0, 3).join(" ") : "",
+          suggestion: suggested
+        };
+      }
+
+      return { analyze };
+    })();
+
+    /* =========================================================================
+       5. 2단계 Gemini AI 초등 국어·맞춤법 정밀 판별기 (교사 PC 전용 호출)
+       ========================================================================= */
+    async function callGeminiGatekeeper(text, localResult) {
+      const apiKey = (SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim();
+      const model = SafeStorage.getLocal(STORAGE_KEYS.GEMINI_MODEL) || "gemini-2.5-flash";
+      if (!apiKey) return null;
+
+      const systemPrompt = [
+        "당신은 20년 경력의 초등학교 4학년 국어 교사이자 국립국어원 어문 규범 전문가입니다.",
+        "학생이 모둠 온라인 채팅방에 입력한 문장이 아래 6가지 금지 기준 중 하나라도 위반하는지 엄격히 검사하세요.",
+        "[6가지 금지 기준]",
+        "1. 예절에 어긋난 말: 비난, 조롱, 무시, 명령조, 과도한 반말/하대('야', '너나 잘해' 등), 온라인 대화 예절 위반",
+        "2. 맞춤법에 틀린 말: 한글 맞춤법·표준어 오류('안되요', '몇일', '어떻해', '설레임' 등) 및 의미를 해치는 심각한 띄어쓰기 오류",
+        "3. 이모티콘: 자음·모음 나열('ㅋㅋ', 'ㅎㅎ', 'ㅠㅠ'), 텍스트 표정('^^', 'T_T'), 그림 이모지 일체",
+        "4. 줄임말: 임의 줄임말('강추', '노잼', '별다줄') 및 초성체('ㅇㅈ', 'ㄱㅅ', 'ㅂㅂ')",
+        "5. 비속어: 욕설, 비하 발언, 거친 은어",
+        "6. 신조어: 국어사전에 등재되지 않은 인터넷 유행어·밈('어쩔티비', '뇌절', '억까', '킹받네' 등)",
+        "초등 4학년 친구끼리 예의를 지키는 다정한 반말('안녕, 내 생각은 이래.', '고마워!')이나 존댓말('좋은 생각이에요!')은 허용하세요.",
+        "반드시 아래 JSON 형식으로만 응답하세요:",
+        '{"allowed": true 또는 false, "categories": ["해당 항목만"], "explanation": "초등 4학년 눈높이 설명 2~3문장", "suggestion": "바르게 고쳐 쓴 추천 문장 1개"}'
+      ].join("\n");
+
+      const userPrompt = [
+        `학생 입력 문장: "${text}"`,
+        localResult.categories.length > 0
+          ? `(참고: 1차 규칙 검사 탐지 항목 = ${localResult.categories.join(", ")})`
+          : "(참고: 1차 규칙 검사 통과 — 문맥상 예절, 맞춤법·띄어쓰기, 숨은 줄임말·신조어를 정밀 검사하세요.)"
+      ].join("\n");
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6500);
+
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+            generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+          })
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) return null;
+        const data = await res.json();
+        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!raw) return null;
+
+        const cleaned = raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+        const parsed = JSON.parse(cleaned);
+        if (typeof parsed.allowed !== "boolean") return null;
+
+        const mergedCats = new Set([
+          ...(Array.isArray(parsed.categories) ? parsed.categories : []),
+          ...localResult.categories
+        ]);
+        const finalAllowed = parsed.allowed && localResult.allowed;
+
+        return {
+          allowed: finalAllowed,
+          categories: Array.from(mergedCats),
+          explanation: parsed.explanation || localResult.explanation || "바른 말과 바른 맞춤법으로 다시 적어 볼까요?",
+          suggestion: parsed.suggestion || localResult.suggestion || "우리 서로 존중하며 바른 말로 이야기해요."
+        };
+      } catch {
+        clearTimeout(timeoutId);
+        return null;
+      }
+    }
+
+    /* =========================================================================
+       6. 통합 데이터 저장소 (Firebase SDK -> REST API 폴백 -> 로컬 데모 모드)
+       ========================================================================= */
+    function createEmptyState() {
+      const rooms = {};
+      for (let i = 1; i <= ROOM_COUNT; i++) {
+        rooms["room_" + i] = {
+          locked: false,
+          notice: "",
+          blockedCount: 0,
+          members: {},
+          messages: {},
+          blockedLogs: {}
+        };
+      }
+      return {
+        settings: {
+          topic: DEFAULT_TOPIC,
+          globalLocked: false,
+          globalNotice: "",
+          aiRelayLastSeen: 0
+        },
+        rooms
+      };
+    }
+
+    function mergeRawState(raw) {
+      const base = createEmptyState();
+      if (!raw || typeof raw !== "object") return base;
+      base.settings = Object.assign(base.settings, raw.settings || {});
+      for (let i = 1; i <= ROOM_COUNT; i++) {
+        const key = "room_" + i;
+        if (raw.rooms && raw.rooms[key]) {
+          base.rooms[key] = Object.assign(base.rooms[key], raw.rooms[key]);
+        }
+      }
+      return base;
+    }
+
+    const DataStore = (() => {
+      let mode = "demo"; // "firebase-sdk" | "firebase-rest" | "demo"
+      let activeFbUrl = "";
+      let fbDb = null;
+      let restPollTimer = null;
+      let aiQueueRef = null;
+      let state = createEmptyState();
+      const listeners = new Set();
+      const pendingDemoAiResolvers = new Map();
+      const processedRestAiIds = new Set();
+
+      let bc = null;
+      try {
+        if ("BroadcastChannel" in window) {
+          bc = new BroadcastChannel("bareunmal_chat_sync_v1");
+        }
+      } catch { bc = null; }
+
+      function notify() {
+        listeners.forEach(fn => {
+          try { fn(state); } catch (e) { console.error(e); }
+        });
+      }
+
+      function readDemoState() {
+        try {
+          const raw = SafeStorage.getLocal(STORAGE_KEYS.DEMO_DB);
+          return raw ? mergeRawState(JSON.parse(raw)) : createEmptyState();
+        } catch {
+          return createEmptyState();
+        }
+      }
+
+      function writeDemoState(mutator) {
+        const current = readDemoState();
+        mutator(current);
+        state = current;
+        SafeStorage.setLocal(STORAGE_KEYS.DEMO_DB, JSON.stringify(current));
+        if (bc) {
+          try { bc.postMessage({ type: "STATE_SYNC" }); } catch {}
+        }
+        notify();
+      }
+
+      if (bc) {
+        bc.onmessage = async (ev) => {
+          const msg = ev.data || {};
+          if (msg.type === "STATE_SYNC" && mode === "demo") {
+            state = readDemoState();
+            notify();
+          } else if (msg.type === "AI_REQ" && mode === "demo") {
+            if (isTeacherAuthenticated() && (SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim()) {
+              const result = await callGeminiGatekeeper(msg.text, msg.localResult);
+              try { bc.postMessage({ type: "AI_RES", reqId: msg.reqId, result }); } catch {}
+            }
+          } else if (msg.type === "AI_RES" && pendingDemoAiResolvers.has(msg.reqId)) {
+            const resolver = pendingDemoAiResolvers.get(msg.reqId);
+            pendingDemoAiResolvers.delete(msg.reqId);
+            resolver(msg.result);
+          }
+        };
+      }
+
+      window.addEventListener("storage", (ev) => {
+        if (ev.key === STORAGE_KEYS.DEMO_DB && mode === "demo") {
+          state = readDemoState();
+          notify();
+        }
+      });
+
+      async function restRequest(path, method = "GET", body = undefined) {
+        const url = `${activeFbUrl}/bm_app${path}.json`;
+        const opts = { method, headers: { "Content-Type": "application/json" } };
+        if (body !== undefined) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (!res.ok) throw new Error("Firebase REST 오류: HTTP " + res.status);
+        return await res.json();
+      }
+
+      async function pollRestState() {
+        if (mode !== "firebase-rest" || !activeFbUrl) return;
+        try {
+          const data = await restRequest("", "GET");
+          state = mergeRawState(data);
+          notify();
+          if (isTeacherAuthenticated() && data && data.aiQueue) {
+            const hasKey = Boolean((SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim());
+            if (hasKey) {
+              for (const [reqId, req] of Object.entries(data.aiQueue)) {
+                if (!req || req.status !== "pending" || processedRestAiIds.has(reqId)) continue;
+                if (Date.now() - (req.createdAt || 0) > 25000) {
+                  restRequest(`/aiQueue/${reqId}`, "DELETE").catch(() => {});
+                  continue;
+                }
+                processedRestAiIds.add(reqId);
+                callGeminiGatekeeper(req.text, req.localResult || { allowed: true, categories: [] })
+                  .then(async (result) => {
+                    await restRequest(`/aiQueue/${reqId}`, "PATCH", {
+                      status: "done",
+                      result: result || null,
+                      answeredAt: Date.now()
+                    });
+                    setTimeout(() => restRequest(`/aiQueue/${reqId}`, "DELETE").catch(() => {}), 10000);
+                  })
+                  .catch(() => {});
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("REST 폴링 지연:", e.message);
+        }
+      }
+
+      function cleanupConnections() {
+        if (aiQueueRef) { try { aiQueueRef.off(); } catch {} aiQueueRef = null; }
+        if (fbDb) { try { fbDb.ref().off(); } catch {} fbDb = null; }
+        clearInterval(restPollTimer);
+        restPollTimer = null;
+      }
+
+      async function init(firebaseUrl) {
+        cleanupConnections();
+        const cleanUrl = normalizeFirebaseUrl(firebaseUrl);
+
+        if (!cleanUrl || !isValidFirebaseUrl(cleanUrl)) {
+          mode = "demo";
+          activeFbUrl = "";
+          state = readDemoState();
+          notify();
+          return mode;
+        }
+
+        activeFbUrl = cleanUrl;
+
+        const sdkLoaded = await tryLoadFirebaseSdk();
+        if (sdkLoaded) {
+          try {
+            let app;
+            if (window.firebase.apps && window.firebase.apps.length > 0) {
+              app = window.firebase.apps.find(a => a.options && normalizeFirebaseUrl(a.options.databaseURL) === cleanUrl)
+                || window.firebase.initializeApp({ databaseURL: cleanUrl }, "app_" + Date.now());
+            } else {
+              app = window.firebase.initializeApp({ databaseURL: cleanUrl });
+            }
+            fbDb = app.database();
+            mode = "firebase-sdk";
+
+            fbDb.ref("bm_app").on("value", (snap) => {
+              state = mergeRawState(snap.val());
+              notify();
+            });
+            return mode;
+          } catch (e) {
+            console.warn("Firebase SDK 초기화 실패, REST 폴백 시도:", e);
+          }
+        }
+
+        try {
+          const data = await restRequest("", "GET");
+          mode = "firebase-rest";
+          state = mergeRawState(data);
+          notify();
+          restPollTimer = setInterval(pollRestState, REST_POLL_INTERVAL_MS);
+          return mode;
+        } catch (e) {
+          console.warn("Firebase 서버 접근 불가, 데모 모드 전환:", e);
+          mode = "demo";
+          activeFbUrl = "";
+          state = readDemoState();
+          notify();
+          showToast("Firebase 서버에 연결할 수 없어 로컬 데모 모드로 전환했습니다.", 3600);
+          return mode;
+        }
+      }
+
+      function getMode() { return mode; }
+      function getState() { return state; }
+      function subscribe(fn) {
+        listeners.add(fn);
+        fn(state);
+        return () => listeners.delete(fn);
+      }
+
+      function getActiveMembers(roomNum) {
+        const room = state.rooms["room_" + roomNum];
+        if (!room || !room.members) return [];
+        const now = Date.now();
+        return Object.entries(room.members)
+          .filter(([, m]) => m && (now - (m.lastSeen || 0) < MEMBER_TIMEOUT_MS))
+          .map(([id, m]) => ({ id, ...m }))
+          .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+      }
+
+      function getSortedMessages(roomNum) {
+        const room = state.rooms["room_" + roomNum];
+        if (!room || !room.messages) return [];
+        return Object.entries(room.messages)
+          .map(([id, m]) => ({ id, ...m }))
+          .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      }
+
+      function getBlockedLogs(roomNum) {
+        const room = state.rooms["room_" + roomNum];
+        if (!room || !room.blockedLogs) return [];
+        return Object.entries(room.blockedLogs)
+          .map(([id, l]) => ({ id, ...l }))
+          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      }
+
+      async function joinMember(roomNum, clientId, name) {
+        const payload = { name, joinedAt: Date.now(), lastSeen: Date.now() };
+        if (mode === "firebase-sdk" && fbDb) {
+          const ref = fbDb.ref(`bm_app/rooms/room_${roomNum}/members/${clientId}`);
+          await ref.set(payload);
+          ref.onDisconnect().remove();
+        } else if (mode === "firebase-rest") {
+          await restRequest(`/rooms/room_${roomNum}/members/${clientId}`, "PUT", payload);
+          await pollRestState();
+        } else {
+          writeDemoState(s => { s.rooms["room_" + roomNum].members[clientId] = payload; });
+        }
+      }
+
+      async function heartbeatMember(roomNum, clientId, name) {
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref(`bm_app/rooms/room_${roomNum}/members/${clientId}`).update({ name, lastSeen: Date.now() });
+        } else if (mode === "firebase-rest") {
+          await restRequest(`/rooms/room_${roomNum}/members/${clientId}`, "PATCH", { name, lastSeen: Date.now() }).catch(() => {});
+        } else {
+          writeDemoState(s => {
+            const m = s.rooms["room_" + roomNum].members[clientId];
+            if (m) m.lastSeen = Date.now();
+          });
+        }
+      }
+
+      async function leaveMember(roomNum, clientId) {
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref(`bm_app/rooms/room_${roomNum}/members/${clientId}`).remove();
+        } else if (mode === "firebase-rest") {
+          await restRequest(`/rooms/room_${roomNum}/members/${clientId}`, "DELETE").catch(() => {});
+        } else {
+          writeDemoState(s => { delete s.rooms["room_" + roomNum].members[clientId]; });
+        }
+      }
+
+      async function addMessage(roomNum, sender, text) {
+        const msg = { roomNum, sender, text, timestamp: Date.now() };
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref(`bm_app/rooms/room_${roomNum}/messages`).push(msg);
+        } else if (mode === "firebase-rest") {
+          await restRequest(`/rooms/room_${roomNum}/messages`, "POST", msg);
+          await pollRestState();
+        } else {
+          const id = "m_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+          writeDemoState(s => { s.rooms["room_" + roomNum].messages[id] = msg; });
+        }
+      }
+
+      async function logBlockedAttempt(roomNum, sender, text, categories) {
+        const log = { sender, text, categories, timestamp: Date.now() };
+        if (mode === "firebase-sdk" && fbDb) {
+          const roomRef = fbDb.ref(`bm_app/rooms/room_${roomNum}`);
+          await roomRef.child("blockedLogs").push(log);
+          await roomRef.child("blockedCount").transaction(c => (c || 0) + 1);
+        } else if (mode === "firebase-rest") {
+          await restRequest(`/rooms/room_${roomNum}/blockedLogs`, "POST", log);
+          const nextCount = (state.rooms["room_" + roomNum].blockedCount || 0) + 1;
+          await restRequest(`/rooms/room_${roomNum}/blockedCount`, "PUT", nextCount);
+          await pollRestState();
+        } else {
+          const id = "b_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+          writeDemoState(s => {
+            const r = s.rooms["room_" + roomNum];
+            r.blockedLogs[id] = log;
+            r.blockedCount = (r.blockedCount || 0) + 1;
+          });
+        }
+      }
+
+      async function setTopic(topic) {
+        if (!isTeacherAuthenticated()) return;
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref("bm_app/settings/topic").set(topic);
+        } else if (mode === "firebase-rest") {
+          await restRequest("/settings", "PATCH", { topic });
+          await pollRestState();
+        } else {
+          writeDemoState(s => { s.settings.topic = topic; });
+        }
+      }
+
+      async function setGlobalNotice(notice) {
+        if (!isTeacherAuthenticated()) return;
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref("bm_app/settings/globalNotice").set(notice);
+        } else if (mode === "firebase-rest") {
+          await restRequest("/settings", "PATCH", { globalNotice: notice });
+          await pollRestState();
+        } else {
+          writeDemoState(s => { s.settings.globalNotice = notice; });
+        }
+      }
+
+      async function setGlobalLock(locked) {
+        if (!isTeacherAuthenticated()) return;
+        if (mode === "firebase-sdk" && fbDb) {
+          const updates = { "bm_app/settings/globalLocked": locked };
+          for (let i = 1; i <= ROOM_COUNT; i++) updates[`bm_app/rooms/room_${i}/locked`] = locked;
+          await fbDb.ref().update(updates);
+        } else if (mode === "firebase-rest") {
+          await restRequest("/settings", "PATCH", { globalLocked: locked });
+          for (let i = 1; i <= ROOM_COUNT; i++) {
+            await restRequest(`/rooms/room_${i}`, "PATCH", { locked });
+          }
+          await pollRestState();
+        } else {
+          writeDemoState(s => {
+            s.settings.globalLocked = locked;
+            for (let i = 1; i <= ROOM_COUNT; i++) s.rooms["room_" + i].locked = locked;
+          });
+        }
+      }
+
+      async function setRoomLock(roomNum, locked) {
+        if (!isTeacherAuthenticated()) return;
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref(`bm_app/rooms/room_${roomNum}/locked`).set(locked);
+        } else if (mode === "firebase-rest") {
+          await restRequest(`/rooms/room_${roomNum}`, "PATCH", { locked });
+          await pollRestState();
+        } else {
+          writeDemoState(s => { s.rooms["room_" + roomNum].locked = locked; });
+        }
+      }
+
+      async function setRoomNotice(roomNum, notice) {
+        if (!isTeacherAuthenticated()) return;
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref(`bm_app/rooms/room_${roomNum}/notice`).set(notice);
+        } else if (mode === "firebase-rest") {
+          await restRequest(`/rooms/room_${roomNum}`, "PATCH", { notice });
+          await pollRestState();
+        } else {
+          writeDemoState(s => { s.rooms["room_" + roomNum].notice = notice; });
+        }
+      }
+
+      async function clearRoomMessages(roomNum) {
+        if (!isTeacherAuthenticated()) return;
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref(`bm_app/rooms/room_${roomNum}`).update({
+            messages: null, blockedLogs: null, blockedCount: 0
+          });
+        } else if (mode === "firebase-rest") {
+          await restRequest(`/rooms/room_${roomNum}`, "PATCH", {
+            messages: null, blockedLogs: null, blockedCount: 0
+          });
+          await pollRestState();
+        } else {
+          writeDemoState(s => {
+            s.rooms["room_" + roomNum].messages = {};
+            s.rooms["room_" + roomNum].blockedLogs = {};
+            s.rooms["room_" + roomNum].blockedCount = 0;
+          });
+        }
+      }
+
+      async function pingAiRelay() {
+        if (!isTeacherAuthenticated()) return;
+        const hasKey = Boolean((SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim());
+        const ts = hasKey ? Date.now() : 0;
+        if (mode === "firebase-sdk" && fbDb) {
+          await fbDb.ref("bm_app/settings/aiRelayLastSeen").set(ts);
+        } else if (mode === "firebase-rest") {
+          await restRequest("/settings", "PATCH", { aiRelayLastSeen: ts }).catch(() => {});
+        } else {
+          writeDemoState(s => { s.settings.aiRelayLastSeen = ts; });
+        }
+      }
+
+      function startTeacherAiRelayListener() {
+        if (aiQueueRef) { try { aiQueueRef.off(); } catch {} aiQueueRef = null; }
+        if (mode === "firebase-sdk" && fbDb && isTeacherAuthenticated()) {
+          aiQueueRef = fbDb.ref("bm_app/aiQueue");
+          aiQueueRef.on("child_added", async (snap) => {
+            const req = snap.val();
+            if (!req || req.status !== "pending") return;
+            if (Date.now() - (req.createdAt || 0) > 20000) {
+              snap.ref.remove();
+              return;
+            }
+            const hasKey = Boolean((SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim());
+            if (!hasKey) return;
+            const result = await callGeminiGatekeeper(req.text, req.localResult || { allowed: true, categories: [] });
+            await snap.ref.update({ status: "done", result: result || null, answeredAt: Date.now() });
+            setTimeout(() => snap.ref.remove(), 12000);
+          });
+        }
+      }
+
+      function isAiRelayOnline() {
+        const last = state.settings.aiRelayLastSeen || 0;
+        return (Date.now() - last) < 25000;
+      }
+
+      async function requestAiCheckViaRelay(text, localResult) {
+        if (!isAiRelayOnline()) return null;
+
+        if (mode === "firebase-sdk" && fbDb) {
+          const reqRef = fbDb.ref("bm_app/aiQueue").push();
+          await reqRef.set({
+            text,
+            localResult: { allowed: localResult.allowed, categories: localResult.categories },
+            status: "pending",
+            createdAt: Date.now()
+          });
+          return await new Promise((resolve) => {
+            let finished = false;
+            const timer = setTimeout(() => {
+              if (!finished) { finished = true; reqRef.off(); reqRef.remove(); resolve(null); }
+            }, 7000);
+            reqRef.on("value", (snap) => {
+              const val = snap.val();
+              if (!finished && val && val.status === "done") {
+                finished = true;
+                clearTimeout(timer);
+                reqRef.off();
+                reqRef.remove();
+                resolve(val.result || null);
+              }
+            });
+          });
+        } else if (mode === "firebase-rest") {
+          try {
+            const pushed = await restRequest("/aiQueue", "POST", {
+              text,
+              localResult: { allowed: localResult.allowed, categories: localResult.categories },
+              status: "pending",
+              createdAt: Date.now()
+            });
+            const reqId = pushed && pushed.name;
+            if (!reqId) return null;
+            const started = Date.now();
+            while (Date.now() - started < 7500) {
+              await new Promise(r => setTimeout(r, 700));
+              const check = await restRequest(`/aiQueue/${reqId}`, "GET").catch(() => null);
+              if (check && check.status === "done") {
+                restRequest(`/aiQueue/${reqId}`, "DELETE").catch(() => {});
+                return check.result || null;
+              }
+            }
+            restRequest(`/aiQueue/${reqId}`, "DELETE").catch(() => {});
+            return null;
+          } catch {
+            return null;
+          }
+        } else if (bc) {
+          const reqId = "ai_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+          return await new Promise((resolve) => {
+            const timer = setTimeout(() => { pendingDemoAiResolvers.delete(reqId); resolve(null); }, 6500);
+            pendingDemoAiResolvers.set(reqId, (res) => { clearTimeout(timer); resolve(res); });
+            try { bc.postMessage({ type: "AI_REQ", reqId, text, localResult }); } catch { clearTimeout(timer); resolve(null); }
+          });
+        }
+        return null;
+      }
+
+      return {
+        init, getMode, getState, subscribe,
+        getActiveMembers, getSortedMessages, getBlockedLogs,
+        joinMember, heartbeatMember, leaveMember,
+        addMessage, logBlockedAttempt,
+        setTopic, setGlobalNotice, setGlobalLock,
+        setRoomLock, setRoomNotice, clearRoomMessages,
+        pingAiRelay, startTeacherAiRelayListener, isAiRelayOnline,
+        requestAiCheckViaRelay
+      };
+    })();
+
+    /* =========================================================================
+       7. 인증 및 라우팅 상태 관리
+       ========================================================================= */
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramRole = urlParams.get("role");
+    const paramRoomRaw = parseInt(urlParams.get("room"), 10);
+    const paramRoom = (paramRoomRaw >= 1 && paramRoomRaw <= ROOM_COUNT) ? paramRoomRaw : null;
+    const paramDb = urlParams.get("db");
+
+    if (paramDb && isValidFirebaseUrl(paramDb)) {
+      SafeStorage.setLocal(STORAGE_KEYS.FIREBASE_URL, normalizeFirebaseUrl(paramDb));
+    }
+
+    let currentView = "entry";
+    let selectedEntryRoom = paramRoom || 1;
+    let activeStudentRoom = null;
+    let activeStudentName = "";
+    let lastSendTime = 0;
+    let studentHeartbeatTimer = null;
+    let teacherRelayTimer = null;
+    let isCheckingMessage = false;
+    let lastSuggestedSentence = "";
+
+    function isTeacherAuthenticated() {
+      return SafeStorage.getSession(SESSION_KEYS.TEACHER_AUTH) === "granted";
+    }
+
+    async function ensureDefaultPasswordHash() {
+      if (!SafeStorage.getLocal(STORAGE_KEYS.TEACHER_PW_HASH)) {
+        const defaultHash = await hashPassword("1234");
+        SafeStorage.setLocal(STORAGE_KEYS.TEACHER_PW_HASH, defaultHash);
+      }
+    }
+
+    function switchView(viewName) {
+      currentView = viewName;
+      document.getElementById("view-entry").classList.toggle("hidden", viewName !== "entry");
+      document.getElementById("view-student").classList.toggle("hidden", viewName !== "student");
+      document.getElementById("view-teacher-auth").classList.toggle("hidden", viewName !== "teacher-auth");
+      document.getElementById("view-teacher").classList.toggle("hidden", viewName !== "teacher");
+      document.body.classList.toggle("teacher-mode", viewName === "teacher" || viewName === "teacher-auth");
+    }
+
+    function buildShareUrl(roomNum) {
+      const base = window.location.origin + window.location.pathname;
+      const params = new URLSearchParams();
+      params.set("room", String(roomNum));
+      const fbUrl = normalizeFirebaseUrl(SafeStorage.getLocal(STORAGE_KEYS.FIREBASE_URL));
+      if (isValidFirebaseUrl(fbUrl)) {
+        params.set("db", fbUrl);
+      }
+      return `${base}?${params.toString()}`;
+    }
+
+    /* =========================================================================
+       8. 화면 렌더링 함수 (전 구역 textContent 기반 XSS 원천 차단)
+       ========================================================================= */
+    function renderEntryView(state) {
+      document.getElementById("entry-topic-text").textContent = state.settings.topic || DEFAULT_TOPIC;
+
+      const connEl = document.getElementById("entry-conn-status");
+      const m = DataStore.getMode();
+      if (m === "firebase-sdk") connEl.textContent = "🟢 실시간 학급 서버 연결됨";
+      else if (m === "firebase-rest") connEl.textContent = "🔵 실시간 학급 서버 연결됨 (학교 방화벽 호환 모드)";
+      else connEl.textContent = "🟡 로컬 데모 모드 (같은 기기 테스트용)";
+
+      if (paramRoom) {
+        document.getElementById("entry-room-selector-wrap").classList.add("hidden");
+        document.getElementById("entry-fixed-room-banner").classList.remove("hidden");
+        document.getElementById("entry-fixed-room-label").textContent = `${paramRoom}모둠 전용 채팅방`;
+        const members = DataStore.getActiveMembers(paramRoom);
+        document.getElementById("entry-fixed-room-count").textContent =
+          `현재 ${members.length}/${MAX_MEMBERS_PER_ROOM}명 접속 중` +
+          (members.length > 0 ? ` (${members.map(mem => mem.name).join(", ")})` : "");
+        selectedEntryRoom = paramRoom;
+      } else {
+        document.getElementById("entry-room-selector-wrap").classList.remove("hidden");
+        document.getElementById("entry-fixed-room-banner").classList.add("hidden");
+        const grid = document.getElementById("entry-room-grid");
+        clearEl(grid);
+        for (let i = 1; i <= ROOM_COUNT; i++) {
+          const members = DataStore.getActiveMembers(i);
+          const isFull = members.length >= MAX_MEMBERS_PER_ROOM;
+          const btn = createEl("button", {
+            className: "room-select-btn" + (selectedEntryRoom === i ? " selected" : ""),
+            attrs: { type: "button" }
+          });
+          btn.appendChild(createEl("div", { className: "room-select-title", text: `${i}모둠` }));
+          btn.appendChild(createEl("div", {
+            className: "room-select-count" + (isFull ? " full" : ""),
+            text: isFull ? `${members.length}/${MAX_MEMBERS_PER_ROOM}명 (정원 가득)` : `${members.length}/${MAX_MEMBERS_PER_ROOM}명 접속 중`
+          }));
+          btn.addEventListener("click", () => {
+            selectedEntryRoom = i;
+            renderEntryView(DataStore.getState());
+          });
+          grid.appendChild(btn);
+        }
+      }
+    }
+
+    function renderStudentView(state) {
+      if (!activeStudentRoom) return;
+      const room = state.rooms["room_" + activeStudentRoom];
+      const members = DataStore.getActiveMembers(activeStudentRoom);
+      const messages = DataStore.getSortedMessages(activeStudentRoom);
+      const isLocked = Boolean(state.settings.globalLocked || room.locked);
+
+      document.getElementById("student-room-pill").textContent = `${activeStudentRoom}모둠`;
+      document.getElementById("student-my-name").textContent = activeStudentName;
+      document.getElementById("student-count-chip").textContent = `${members.length}/${MAX_MEMBERS_PER_ROOM}명 접속 중`;
+      document.getElementById("student-topic-text").textContent = state.settings.topic || DEFAULT_TOPIC;
+
+      const aiOn = DataStore.isAiRelayOnline();
+      document.getElementById("student-filter-badge").textContent = aiOn
+        ? "🤖 AI 정밀 맞춤법·예절 지킴이 작동 중"
+        : "🛡️ 바른말·맞춤법 지킴이 작동 중";
+
+      const noticeText = (room.notice || "").trim() || (state.settings.globalNotice || "").trim();
+      const noticeBanner = document.getElementById("student-notice-banner");
+      if (noticeText) {
+        noticeBanner.classList.remove("hidden");
+        document.getElementById("student-notice-text").textContent = noticeText;
+      } else {
+        noticeBanner.classList.add("hidden");
+      }
+
+      const membersWrap = document.getElementById("student-members-list");
+      clearEl(membersWrap);
+      members.forEach(m => {
+        const isMe = m.id === getClientId();
+        membersWrap.appendChild(createEl("span", {
+          className: "member-badge" + (isMe ? " me" : ""),
+          text: isMe ? `${m.name} (나)` : m.name
+        }));
+      });
+
+      const lockBanner = document.getElementById("student-lock-banner");
+      const inputEl = document.getElementById("student-msg-input");
+      const sendBtn = document.getElementById("btn-send-msg");
+      lockBanner.classList.toggle("hidden", !isLocked);
+      inputEl.disabled = isLocked || isCheckingMessage;
+      sendBtn.disabled = isLocked || isCheckingMessage;
+
+      const msgArea = document.getElementById("student-chat-messages");
+      const wasAtBottom = (msgArea.scrollHeight - msgArea.scrollTop - msgArea.clientHeight) < 80;
+      clearEl(msgArea);
+
+      if (messages.length === 0) {
+        const empty = createEl("div", { className: "chat-empty-state" });
+        empty.appendChild(createEl("p", { text: `아직 ${activeStudentRoom}모둠에 대화가 없어요.` }));
+        empty.appendChild(createEl("p", { text: "친구를 존중하는 바른 말로 첫 인사를 건네 볼까요?" }));
+        msgArea.appendChild(empty);
+      } else {
+        messages.forEach(msg => {
+          const isMine = msg.sender === activeStudentName;
+          const row = createEl("div", { className: "msg-row " + (isMine ? "mine" : "other") });
+          if (!isMine) {
+            row.appendChild(createEl("div", { className: "msg-sender", text: msg.sender }));
+          }
+          const wrap = createEl("div", { className: "msg-bubble-wrap" });
+          wrap.appendChild(createEl("div", { className: "msg-bubble", text: msg.text }));
+          wrap.appendChild(createEl("div", { className: "msg-time", text: formatShortTime(msg.timestamp) }));
+          row.appendChild(wrap);
+          msgArea.appendChild(row);
+        });
+      }
+
+      if (wasAtBottom) msgArea.scrollTop = msgArea.scrollHeight;
+    }
+
+    function renderTeacherDashboard(state) {
+      if (!isTeacherAuthenticated()) return;
+
+      const connPill = document.getElementById("teacher-conn-pill");
+      const m = DataStore.getMode();
+      if (m === "firebase-sdk") {
+        connPill.className = "sys-pill online";
+        connPill.textContent = "🟢 Firebase 실시간 동기화 연결됨";
+      } else if (m === "firebase-rest") {
+        connPill.className = "sys-pill rest";
+        connPill.textContent = "🔵 Firebase REST 실시간 폴링 중 (CDN 차단 우회)";
+      } else {
+        connPill.className = "sys-pill demo";
+        connPill.textContent = "🟡 로컬 데모 모드 (환경 설정에서 Firebase 연동 가능)";
+      }
+
+      const aiPill = document.getElementById("teacher-ai-pill");
+      const hasGemini = Boolean((SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "").trim());
+      if (hasGemini) {
+        const model = SafeStorage.getLocal(STORAGE_KEYS.GEMINI_MODEL) || "gemini-2.5-flash";
+        aiPill.className = "sys-pill ai-on";
+        aiPill.textContent = `🤖 Gemini AI 정밀 중계 가동 중 (${model})`;
+      } else {
+        aiPill.className = "sys-pill ai-off";
+        aiPill.textContent = "🛡️ 1차 규칙 필터만 활성 (Gemini API 키 미설정)";
+      }
+
+      const topicInput = document.getElementById("teacher-topic-input");
+      if (document.activeElement !== topicInput) {
+        topicInput.value = state.settings.topic || DEFAULT_TOPIC;
+      }
+
+      const grid = document.getElementById("teacher-rooms-grid");
+      clearEl(grid);
+
+      for (let i = 1; i <= ROOM_COUNT; i++) {
+        const room = state.rooms["room_" + i];
+        const members = DataStore.getActiveMembers(i);
+        const messages = DataStore.getSortedMessages(i);
+        const isLocked = Boolean(state.settings.globalLocked || room.locked);
+        const blockedCount = room.blockedCount || 0;
+
+        const card = createEl("section", {
+          className: "room-monitor-card" + (isLocked ? " locked" : "") + (blockedCount >= 3 ? " alert-high" : "")
+        });
+
+        const head = createEl("div", { className: "room-card-head" });
+        const titleWrap = createEl("div", { className: "room-card-title" });
+        const dot = createEl("span", { className: "room-color-dot" });
+        dot.style.backgroundColor = ROOM_COLORS[i - 1];
+        titleWrap.appendChild(dot);
+        titleWrap.appendChild(document.createTextNode(`${i}모둠`));
+
+        const statusWrap = createEl("div", { className: "room-card-status" });
+        statusWrap.appendChild(createEl("span", {
+          className: "mini-pill count",
+          text: `${members.length}/${MAX_MEMBERS_PER_ROOM}명 접속 중`
+        }));
+        if (isLocked) {
+          statusWrap.appendChild(createEl("span", { className: "mini-pill locked", text: "잠김" }));
+        }
+        if (blockedCount > 0) {
+          const warnPill = createEl("span", {
+            className: "mini-pill " + (blockedCount >= 3 ? "warn-high" : "warn"),
+            text: `교정 ${blockedCount}회`
+          });
+          warnPill.title = "클릭하여 차단된 표현 기록 보기";
+          warnPill.addEventListener("click", () => openBlockedLogsModal(i));
+          statusWrap.appendChild(warnPill);
+        }
+        head.appendChild(titleWrap);
+        head.appendChild(statusWrap);
+        card.appendChild(head);
+
+        const memRow = createEl("div", { className: "room-card-members" });
+        if (members.length === 0) {
+          memRow.textContent = "접속한 학생 없음";
+        } else {
+          members.forEach(mem => {
+            memRow.appendChild(createEl("span", { className: "member-badge", text: mem.name }));
+          });
+        }
+        card.appendChild(memRow);
+
+        if (room.notice) {
+          card.appendChild(createEl("div", { className: "room-card-notice", text: `📢 모둠 공지: ${room.notice}` }));
+        }
+
+        const feed = createEl("div", { className: "room-card-feed" });
+        if (messages.length === 0) {
+          feed.appendChild(createEl("div", {
+            text: "대화 내용이 아직 없습니다.",
+            attrs: { style: "margin:auto;color:#94a3b8;font-size:13px;" }
+          }));
+        } else {
+          messages.forEach(msg => {
+            const item = createEl("div", { className: "monitor-msg-item" });
+            const meta = createEl("div", { className: "monitor-msg-meta" });
+            meta.appendChild(createEl("span", { className: "monitor-msg-sender", text: msg.sender }));
+            meta.appendChild(createEl("span", { text: formatTime(msg.timestamp) }));
+            item.appendChild(meta);
+            item.appendChild(createEl("div", { className: "monitor-msg-body", text: msg.text }));
+            feed.appendChild(item);
+          });
+        }
+        card.appendChild(feed);
+
+        const actions = createEl("div", { className: "room-card-actions" });
+
+        const btnCopy = createEl("button", { className: "btn-secondary btn-xs", text: "링크 복사" });
+        btnCopy.addEventListener("click", () => copyRoomLink(i));
+
+        const btnQr = createEl("button", { className: "btn-secondary btn-xs", text: "QR코드" });
+        btnQr.addEventListener("click", () => openQrModal(i));
+
+        const btnLock = createEl("button", {
+          className: (room.locked ? "btn-warning" : "btn-secondary") + " btn-xs",
+          text: room.locked ? "잠금 해제" : "채팅 잠금"
+        });
+        btnLock.addEventListener("click", async () => {
+          await DataStore.setRoomLock(i, !room.locked);
+          showToast(`${i}모둠 채팅을 ${!room.locked ? "잠갔습니다" : "해제했습니다"}.`);
+        });
+
+        const btnNotice = createEl("button", { className: "btn-secondary btn-xs", text: "공지" });
+        btnNotice.addEventListener("click", async () => {
+          const txt = window.prompt(`${i}모둠에만 보낼 공지를 입력하세요. (빈 칸 입력 시 공지 삭제)`, room.notice || "");
+          if (txt !== null) {
+            await DataStore.setRoomNotice(i, txt.trim());
+            showToast(txt.trim() ? `${i}모둠 공지를 띄웠습니다.` : `${i}모둠 공지를 내렸습니다.`);
+          }
+        });
+
+        const btnCsv = createEl("button", { className: "btn-success btn-xs", text: "CSV" });
+        btnCsv.addEventListener("click", () => exportSingleRoom(i, "csv"));
+
+        const btnTxt = createEl("button", { className: "btn-success btn-xs", text: "TXT" });
+        btnTxt.addEventListener("click", () => exportSingleRoom(i, "txt"));
+
+        const btnReset = createEl("button", { className: "btn-danger btn-xs", text: "초기화" });
+        btnReset.addEventListener("click", async () => {
+          if (window.confirm(`${i}모둠의 모든 대화 내용과 교정 기록을 삭제하시겠습니까?`)) {
+            await DataStore.clearRoomMessages(i);
+            showToast(`${i}모둠 대화를 초기화했습니다.`);
+          }
+        });
+
+        actions.append(btnCopy, btnQr, btnLock, btnNotice, btnCsv, btnTxt, btnReset);
+        card.appendChild(actions);
+        grid.appendChild(card);
+
+        requestAnimationFrame(() => { feed.scrollTop = feed.scrollHeight; });
+      }
+    }
+
+    /* =========================================================================
+       9. 학생 입장 및 2단계 전송 전 차단 처리
+       ========================================================================= */
+    async function enterStudentRoom() {
+      const nameInput = document.getElementById("student-name-input");
+      const name = nameInput.value.trim().replace(/\s+/g, " ");
+      if (name.length < 2) {
+        showToast("학번과 이름을 2글자 이상 입력해 주세요. (예: 40501 김민준)");
+        nameInput.focus();
+        return;
+      }
+
+      const roomNum = selectedEntryRoom;
+      const activeMembers = DataStore.getActiveMembers(roomNum);
+      const alreadyIn = activeMembers.some(m => m.id === getClientId() || m.name === name);
+      if (activeMembers.length >= MAX_MEMBERS_PER_ROOM && !alreadyIn) {
+        showToast(`${roomNum}모둠에 이미 ${MAX_MEMBERS_PER_ROOM}명이 모두 입장해 있어요! 모둠 번호를 확인해 주세요.`, 3500);
+        return;
+      }
+
+      activeStudentRoom = roomNum;
+      activeStudentName = name;
+      SafeStorage.setLocal(STORAGE_KEYS.STUDENT_NAME, name);
+
+      await DataStore.joinMember(roomNum, getClientId(), name);
+      clearInterval(studentHeartbeatTimer);
+      studentHeartbeatTimer = setInterval(() => {
+        if (activeStudentRoom) {
+          DataStore.heartbeatMember(activeStudentRoom, getClientId(), activeStudentName);
+        }
+      }, HEARTBEAT_INTERVAL_MS);
+
+      switchView("student");
+      renderStudentView(DataStore.getState());
+      document.getElementById("student-msg-input").focus();
+    }
+
+    async function leaveStudentRoom() {
+      if (activeStudentRoom) {
+        clearInterval(studentHeartbeatTimer);
+        await DataStore.leaveMember(activeStudentRoom, getClientId());
+        activeStudentRoom = null;
+      }
+      switchView("entry");
+      renderEntryView(DataStore.getState());
+    }
+
+    function openCorrectionModal(originalText, verdict) {
+      lastSuggestedSentence = verdict.suggestion || "";
+      const catsEl = document.getElementById("correction-cats");
+      clearEl(catsEl);
+      (verdict.categories || ["바른 말 확인 필요"]).forEach(cat => {
+        catsEl.appendChild(createEl("span", { className: "correction-cat-badge", text: cat }));
+      });
+      document.getElementById("correction-original-text").textContent = originalText;
+      document.getElementById("correction-explain-text").textContent = verdict.explanation;
+      document.getElementById("correction-suggestion-text").textContent = lastSuggestedSentence;
+      document.getElementById("modal-correction").classList.remove("hidden");
+    }
+
+    async function handleSendMessage() {
+      if (isCheckingMessage || !activeStudentRoom) return;
+
+      const state = DataStore.getState();
+      const room = state.rooms["room_" + activeStudentRoom];
+      if (state.settings.globalLocked || room.locked) {
+        showToast("지금은 채팅이 잠겨 있어요. 선생님 말씀을 들어 주세요.");
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastSendTime < SEND_COOLDOWN_MS) {
+        showToast("잠시만요! 2초 뒤에 천천히 보내 주세요.");
+        return;
+      }
+
+      const inputEl = document.getElementById("student-msg-input");
+      const rawText = inputEl.value.trim();
+      if (!rawText) return;
+      if (rawText.length > MAX_MSG_LENGTH) {
+        showToast(`메시지는 최대 ${MAX_MSG_LENGTH}자까지 입력할 수 있어요.`);
+        return;
+      }
+
+      const sendBtn = document.getElementById("btn-send-msg");
+      isCheckingMessage = true;
+      inputEl.disabled = true;
+      sendBtn.disabled = true;
+      clearEl(sendBtn);
+      sendBtn.appendChild(createEl("span", { className: "spinner-inline" }));
+      sendBtn.appendChild(document.createTextNode("검사 중..."));
+
+      try {
+        const localResult = RULE_ENGINE.analyze(rawText);
+        let finalVerdict = localResult;
+
+        if (DataStore.isAiRelayOnline()) {
+          const aiVerdict = await DataStore.requestAiCheckViaRelay(rawText, localResult);
+          if (aiVerdict) finalVerdict = aiVerdict;
+        }
+
+        if (!finalVerdict.allowed) {
+          await DataStore.logBlockedAttempt(activeStudentRoom, activeStudentName, rawText, finalVerdict.categories);
+          openCorrectionModal(rawText, finalVerdict);
+        } else {
+          lastSendTime = Date.now();
+          await DataStore.addMessage(activeStudentRoom, activeStudentName, rawText);
+          inputEl.value = "";
+          document.getElementById("student-char-counter").textContent = `0 / ${MAX_MSG_LENGTH}자`;
+        }
+      } finally {
+        isCheckingMessage = false;
+        sendBtn.textContent = "보내기";
+        const latestState = DataStore.getState();
+        const latestRoom = latestState.rooms["room_" + activeStudentRoom];
+        const lockedNow = Boolean(latestState.settings.globalLocked || latestRoom.locked);
+        inputEl.disabled = lockedNow;
+        sendBtn.disabled = lockedNow;
+        if (!lockedNow) inputEl.focus();
+      }
+    }
+
+    /* =========================================================================
+       10. 교사 관리 도구 (링크/QR, 차단 로그, CSV/TXT 저장)
+       ========================================================================= */
+    async function copyRoomLink(roomNum) {
+      const url = buildShareUrl(roomNum);
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast(`${roomNum}모둠 접속 링크가 복사되었습니다.`);
+      } catch {
+        window.prompt(`${roomNum}모둠 링크를 복사하세요:`, url);
+      }
+    }
+
+    async function openQrModal(roomNum) {
+      const url = buildShareUrl(roomNum);
+      document.getElementById("qr-modal-title").textContent = `${roomNum}모둠 학생 접속 QR코드`;
+      document.getElementById("qr-url-display").textContent = url;
+      document.getElementById("btn-copy-qr-url").onclick = () => copyRoomLink(roomNum);
+
+      const box = document.getElementById("qr-canvas-box");
+      clearEl(box);
+      box.textContent = "QR코드를 생성하고 있습니다...";
+      document.getElementById("modal-qr").classList.remove("hidden");
+
+      const qrReady = await tryLoadQrLibrary();
+      clearEl(box);
+      if (qrReady) {
+        new window.QRCode(box, { text: url, width: 210, height: 210, correctLevel: window.QRCode.CorrectLevel.M });
+      } else {
+        const fallback = createEl("div", { attrs: { style: "padding:10px;line-height:1.6;" } });
+        fallback.appendChild(createEl("div", {
+          text: "학교 네트워크에서 QR코드 외부 스크립트가 차단되어 있습니다.",
+          attrs: { style: "font-weight:700;color:#b45309;margin-bottom:6px;" }
+        }));
+        fallback.appendChild(createEl("div", {
+          text: "아래 [접속 링크 복사하기] 버튼을 눌러 학급 게시판이나 메신저로 전달해 주세요."
+        }));
+        box.appendChild(fallback);
+      }
+    }
+
+    function openBlockedLogsModal(roomNum) {
+      const logs = DataStore.getBlockedLogs(roomNum);
+      document.getElementById("blocked-modal-title").textContent = `${roomNum}모둠 바른말 교정(차단) 기록 (${logs.length}건)`;
+      const listEl = document.getElementById("blocked-logs-list");
+      clearEl(listEl);
+
+      if (logs.length === 0) {
+        listEl.appendChild(createEl("p", {
+          text: "차단된 기록이 없습니다.",
+          attrs: { style: "color:#64748b;text-align:center;padding:20px;" }
+        }));
+      } else {
+        logs.forEach(log => {
+          const item = createEl("div", { className: "blocked-log-item" });
+          const top = createEl("div", {
+            attrs: { style: "display:flex;justify-content:space-between;margin-bottom:4px;font-weight:700;color:#991b1b;" }
+          });
+          top.appendChild(createEl("span", { text: `${log.sender} · ${(log.categories || []).join(", ")}` }));
+          top.appendChild(createEl("span", { text: formatTime(log.timestamp), attrs: { style: "font-weight:400;color:#64748b;" } }));
+          item.appendChild(top);
+          item.appendChild(createEl("div", { text: `시도한 문장: "${log.text}"`, attrs: { style: "color:#1e293b;" } }));
+          listEl.appendChild(item);
+        });
+      }
+      document.getElementById("modal-blocked-logs").classList.remove("hidden");
+    }
+
+    function exportSingleRoom(roomNum, format) {
+      const state = DataStore.getState();
+      const messages = DataStore.getSortedMessages(roomNum);
+      const topic = state.settings.topic || DEFAULT_TOPIC;
+      const stamp = formatDateStamp();
+
+      if (format === "csv") {
+        const rows = [["모둠", "시간", "이름", "메시지"].map(safeCsvCell).join(",")];
+        messages.forEach(m => {
+          rows.push([`${roomNum}모둠`, formatTime(m.timestamp), m.sender, m.text].map(safeCsvCell).join(","));
+        });
+        downloadFile(`바른말채팅_${roomNum}모둠_${stamp}.csv`, "\uFEFF" + rows.join("\r\n"), "text/csv;charset=utf-8");
+      } else {
+        const lines = [
+          `[초등 4학년 국어 온라인 대화 실습 기록 - ${roomNum}모둠]`,
+          `대화 주제: ${topic}`,
+          `저장 일시: ${new Date().toLocaleString("ko-KR")}`,
+          `총 대화 수: ${messages.length}건`,
+          "--------------------------------------------------"
+        ];
+        if (messages.length === 0) lines.push("(기록된 대화가 없습니다.)");
+        else messages.forEach(m => lines.push(`[${formatTime(m.timestamp)}] ${m.sender}: ${m.text}`));
+        downloadFile(`바른말채팅_${roomNum}모둠_${stamp}.txt`, lines.join("\r\n"), "text/plain;charset=utf-8");
+      }
+      showToast(`${roomNum}모둠 대화 내역을 ${format.toUpperCase()} 파일로 저장했습니다.`);
+    }
+
+    function exportAllRooms(format) {
+      const state = DataStore.getState();
+      const topic = state.settings.topic || DEFAULT_TOPIC;
+      const stamp = formatDateStamp();
+
+      if (format === "csv") {
+        const rows = [["모둠", "시간", "이름", "메시지"].map(safeCsvCell).join(",")];
+        for (let i = 1; i <= ROOM_COUNT; i++) {
+          DataStore.getSortedMessages(i).forEach(m => {
+            rows.push([`${i}모둠`, formatTime(m.timestamp), m.sender, m.text].map(safeCsvCell).join(","));
+          });
+        }
+        downloadFile(`바른말채팅_전체6모둠_${stamp}.csv`, "\uFEFF" + rows.join("\r\n"), "text/csv;charset=utf-8");
+      } else {
+        const lines = [
+          "[초등 4학년 국어 온라인 대화 실습 전체 기록 (1~6모둠)]",
+          `대화 주제: ${topic}`,
+          `저장 일시: ${new Date().toLocaleString("ko-KR")}`,
+          "=================================================="
+        ];
+        for (let i = 1; i <= ROOM_COUNT; i++) {
+          const messages = DataStore.getSortedMessages(i);
+          lines.push("", `=== [${i}모둠] (총 ${messages.length}건) ===`);
+          if (messages.length === 0) lines.push("  (기록된 대화가 없습니다.)");
+          else messages.forEach(m => lines.push(`  [${formatTime(m.timestamp)}] ${m.sender}: ${m.text}`));
+        }
+        downloadFile(`바른말채팅_전체6모둠_${stamp}.txt`, lines.join("\r\n"), "text/plain;charset=utf-8");
+      }
+      showToast(`전체 6모둠 대화 내역을 ${format.toUpperCase()} 파일로 저장했습니다.`);
+    }
+
+    function startTeacherDashboardSession() {
+      switchView("teacher");
+      DataStore.startTeacherAiRelayListener();
+      DataStore.pingAiRelay();
+      clearInterval(teacherRelayTimer);
+      teacherRelayTimer = setInterval(() => {
+        if (isTeacherAuthenticated()) DataStore.pingAiRelay();
+      }, HEARTBEAT_INTERVAL_MS);
+      renderTeacherDashboard(DataStore.getState());
+    }
+
+    /* =========================================================================
+       11. 이벤트 바인딩 및 안전한 앱 부트스트랩
+       ========================================================================= */
+    function bindEvents() {
+      document.getElementById("btn-enter-room").addEventListener("click", enterStudentRoom);
+      document.getElementById("student-name-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") enterStudentRoom();
+      });
+      document.getElementById("btn-go-teacher").addEventListener("click", () => {
+        const base = window.location.origin + window.location.pathname;
+        window.location.href = `${base}?role=teacher`;
+      });
+
+      document.getElementById("btn-open-student-db-modal").addEventListener("click", () => {
+        document.getElementById("student-db-url-input").value = SafeStorage.getLocal(STORAGE_KEYS.FIREBASE_URL) || "";
+        document.getElementById("modal-student-db").classList.remove("hidden");
+      });
+      document.getElementById("btn-close-student-db").addEventListener("click", () => {
+        document.getElementById("modal-student-db").classList.add("hidden");
+      });
+      document.getElementById("btn-save-student-db").addEventListener("click", async () => {
+        const url = normalizeFirebaseUrl(document.getElementById("student-db-url-input").value);
+        if (!isValidFirebaseUrl(url)) {
+          showToast("올바른 Firebase Realtime Database URL을 입력해 주세요.");
+          return;
+        }
+        SafeStorage.setLocal(STORAGE_KEYS.FIREBASE_URL, url);
+        document.getElementById("modal-student-db").classList.add("hidden");
+        showToast("학급 서버 연결을 시도하고 있습니다...");
+        await DataStore.init(url);
+      });
+      document.getElementById("btn-clear-student-db").addEventListener("click", async () => {
+        SafeStorage.removeLocal(STORAGE_KEYS.FIREBASE_URL);
+        await DataStore.init("");
+        document.getElementById("modal-student-db").classList.add("hidden");
+        showToast("로컬 데모 모드로 전환했습니다.");
+      });
+
+      document.getElementById("btn-leave-room").addEventListener("click", leaveStudentRoom);
+      document.getElementById("btn-send-msg").addEventListener("click", handleSendMessage);
+      document.getElementById("student-msg-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.isComposing) handleSendMessage();
+      });
+      document.getElementById("student-msg-input").addEventListener("input", (e) => {
+        document.getElementById("student-char-counter").textContent = `${e.target.value.length} / ${MAX_MSG_LENGTH}자`;
+      });
+
+      const closeCorrection = () => {
+        document.getElementById("modal-correction").classList.add("hidden");
+        document.getElementById("student-msg-input").focus();
+      };
+      document.getElementById("btn-close-correction").addEventListener("click", closeCorrection);
+      document.getElementById("btn-correction-manual").addEventListener("click", closeCorrection);
+      document.getElementById("btn-correction-apply").addEventListener("click", () => {
+        const inputEl = document.getElementById("student-msg-input");
+        inputEl.value = lastSuggestedSentence;
+        document.getElementById("student-char-counter").textContent = `${inputEl.value.length} / ${MAX_MSG_LENGTH}자`;
+        closeCorrection();
+        showToast("바른 추천 문장을 입력창에 넣었어요! 확인 후 보내기를 눌러 보세요.");
+      });
+
+      const doTeacherLogin = async () => {
+        const pw = document.getElementById("teacher-pw-input").value;
+        const inputHash = await hashPassword(pw);
+        const savedHash = SafeStorage.getLocal(STORAGE_KEYS.TEACHER_PW_HASH);
+        if (inputHash === savedHash) {
+          SafeStorage.setSession(SESSION_KEYS.TEACHER_AUTH, "granted");
+          document.getElementById("teacher-pw-input").value = "";
+          startTeacherDashboardSession();
+          showToast("교사 대시보드에 접속했습니다.");
+        } else {
+          showToast("비밀번호가 올바르지 않습니다.");
+        }
+      };
+      document.getElementById("btn-teacher-login").addEventListener("click", doTeacherLogin);
+      document.getElementById("teacher-pw-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") doTeacherLogin();
+      });
+      document.getElementById("btn-back-to-lobby").addEventListener("click", () => {
+        window.location.href = window.location.origin + window.location.pathname;
+      });
+
+      document.getElementById("btn-teacher-logout").addEventListener("click", () => {
+        SafeStorage.removeSession(SESSION_KEYS.TEACHER_AUTH);
+        clearInterval(teacherRelayTimer);
+        switchView("teacher-auth");
+        showToast("로그아웃되었습니다.");
+      });
+
+      document.getElementById("btn-save-topic").addEventListener("click", async () => {
+        const val = document.getElementById("teacher-topic-input").value.trim();
+        if (!val) return showToast("대화 주제를 입력해 주세요.");
+        await DataStore.setTopic(val);
+        showToast("전체 모둠에 새 대화 주제가 반영되었습니다.");
+      });
+
+      document.getElementById("btn-send-global-notice").addEventListener("click", async () => {
+        const val = document.getElementById("teacher-global-notice-input").value.trim();
+        if (!val) return showToast("공지 내용을 입력해 주세요.");
+        await DataStore.setGlobalNotice(val);
+        showToast("전체 모둠에 실시간 공지를 띄웠습니다.");
+      });
+
+      document.getElementById("btn-clear-global-notice").addEventListener("click", async () => {
+        document.getElementById("teacher-global-notice-input").value = "";
+        await DataStore.setGlobalNotice("");
+        showToast("전체 공지 배너를 내렸습니다.");
+      });
+
+      document.getElementById("btn-lock-all").addEventListener("click", async () => {
+        await DataStore.setGlobalLock(true);
+        showToast("6개 모둠 채팅을 모두 일시 정지했습니다.");
+      });
+
+      document.getElementById("btn-unlock-all").addEventListener("click", async () => {
+        await DataStore.setGlobalLock(false);
+        showToast("전체 모둠 채팅 잠금을 해제했습니다.");
+      });
+
+      document.getElementById("btn-export-all-csv").addEventListener("click", () => exportAllRooms("csv"));
+      document.getElementById("btn-export-all-txt").addEventListener("click", () => exportAllRooms("txt"));
+
+      document.getElementById("btn-open-settings").addEventListener("click", () => {
+        if (!isTeacherAuthenticated()) return;
+        document.getElementById("cfg-firebase-url").value = SafeStorage.getLocal(STORAGE_KEYS.FIREBASE_URL) || "";
+        document.getElementById("cfg-gemini-key").value = SafeStorage.getLocal(STORAGE_KEYS.GEMINI_KEY) || "";
+        document.getElementById("cfg-gemini-model").value = SafeStorage.getLocal(STORAGE_KEYS.GEMINI_MODEL) || "gemini-2.5-flash";
+        document.getElementById("cfg-new-pw").value = "";
+        document.getElementById("modal-settings").classList.remove("hidden");
+      });
+
+      document.getElementById("btn-close-settings").addEventListener("click", () => {
+        document.getElementById("modal-settings").classList.add("hidden");
+      });
+
+      document.getElementById("btn-reset-demo-mode").addEventListener("click", async () => {
+        SafeStorage.removeLocal(STORAGE_KEYS.FIREBASE_URL);
+        document.getElementById("cfg-firebase-url").value = "";
+        await DataStore.init("");
+        await DataStore.pingAiRelay();
+        showToast("로컬 데모 모드로 전환했습니다.");
+      });
+
+      document.getElementById("btn-save-settings").addEventListener("click", async () => {
+        if (!isTeacherAuthenticated()) return;
+        const fbUrl = normalizeFirebaseUrl(document.getElementById("cfg-firebase-url").value);
+        const geminiKey = document.getElementById("cfg-gemini-key").value.trim();
+        const geminiModel = document.getElementById("cfg-gemini-model").value;
+        const newPw = document.getElementById("cfg-new-pw").value.trim();
+
+        if (fbUrl && !isValidFirebaseUrl(fbUrl)) {
+          showToast("Firebase Realtime Database URL 형식이 올바르지 않습니다.");
+          return;
+        }
+        if (newPw && newPw.length < 4) {
+          showToast("새 비밀번호는 4자 이상으로 설정해 주세요.");
+          return;
+        }
+
+        if (fbUrl) SafeStorage.setLocal(STORAGE_KEYS.FIREBASE_URL, fbUrl);
+        else SafeStorage.removeLocal(STORAGE_KEYS.FIREBASE_URL);
+
+        if (geminiKey) SafeStorage.setLocal(STORAGE_KEYS.GEMINI_KEY, geminiKey);
+        else SafeStorage.removeLocal(STORAGE_KEYS.GEMINI_KEY);
+
+        SafeStorage.setLocal(STORAGE_KEYS.GEMINI_MODEL, geminiModel);
+
+        if (newPw) {
+          const newHash = await hashPassword(newPw);
+          SafeStorage.setLocal(STORAGE_KEYS.TEACHER_PW_HASH, newHash);
+        }
+
+        document.getElementById("modal-settings").classList.add("hidden");
+        showToast("설정을 적용하고 있습니다...");
+        await DataStore.init(fbUrl);
+        DataStore.startTeacherAiRelayListener();
+        await DataStore.pingAiRelay();
+        renderTeacherDashboard(DataStore.getState());
+        showToast("환경 설정이 안전하게 저장되었습니다.");
+      });
+
+      document.getElementById("btn-close-qr").addEventListener("click", () => {
+        document.getElementById("modal-qr").classList.add("hidden");
+      });
+      const closeBlocked = () => document.getElementById("modal-blocked-logs").classList.add("hidden");
+      document.getElementById("btn-close-blocked").addEventListener("click", closeBlocked);
+      document.getElementById("btn-ok-blocked").addEventListener("click", closeBlocked);
+
+      window.addEventListener("beforeunload", () => {
+        if (activeStudentRoom) DataStore.leaveMember(activeStudentRoom, getClientId());
+      });
+    }
+
+    async function bootstrap() {
+      await ensureDefaultPasswordHash();
+      bindEvents();
+
+      const savedName = SafeStorage.getLocal(STORAGE_KEYS.STUDENT_NAME);
+      if (savedName) document.getElementById("student-name-input").value = savedName;
+
+      // 먼저 즉시 화면을 그려 외부 네트워크 응답을 기다리지 않도록 보장
+      DataStore.subscribe((state) => {
+        if (currentView === "entry") renderEntryView(state);
+        else if (currentView === "student") renderStudentView(state);
+        else if (currentView === "teacher") renderTeacherDashboard(state);
+      });
+
+      if (paramRole === "teacher") {
+        if (isTeacherAuthenticated()) {
+          startTeacherDashboardSession();
+        } else {
+          switchView("teacher-auth");
+          document.getElementById("teacher-pw-input").focus();
+        }
+      } else {
+        switchView("entry");
+        renderEntryView(DataStore.getState());
+      }
+
+      // 백그라운드에서 저장된 Firebase 서버 연결 시도 (화면 차단 없음)
+      const savedFbUrl = normalizeFirebaseUrl(SafeStorage.getLocal(STORAGE_KEYS.FIREBASE_URL));
+      await DataStore.init(savedFbUrl);
+      if (currentView === "teacher" && isTeacherAuthenticated()) {
+        DataStore.startTeacherAiRelayListener();
+        DataStore.pingAiRelay();
+      }
+    }
+
+    bootstrap().catch((err) => {
+      if (window.__showAppFatalError) {
+        window.__showAppFatalError("초기화 오류: " + (err && err.message ? err.message : String(err)));
+      }
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
